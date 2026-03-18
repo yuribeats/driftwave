@@ -15,6 +15,7 @@ const btnClass =
 export default function Home() {
   const sourceBuffer = useStore((s) => s.sourceBuffer);
   const sourceFilename = useStore((s) => s.sourceFilename);
+  const eject = useStore((s) => s.eject);
   const randomize = useStore((s) => s.randomize);
   const share = useStore((s) => s.share);
   const isSharing = useStore((s) => s.isSharing);
@@ -35,11 +36,22 @@ export default function Home() {
           <h1 className="text-sm text-dw-text uppercase tracking-[0.2em] font-bold">
             THE SLOWED AND REVERB MACHINE
           </h1>
-          {sourceFilename && (
-            <span className="text-[10px] text-dw-muted uppercase tracking-[0.1em]">
-              {sourceFilename}
-            </span>
-          )}
+          <div className="flex items-center gap-4">
+            {sourceFilename && (
+              <span className="text-[10px] text-dw-muted uppercase tracking-[0.1em]">
+                {sourceFilename}
+              </span>
+            )}
+            {sourceBuffer && (
+              <button
+                onClick={eject}
+                className="text-[10px] text-dw-muted uppercase tracking-[0.15em] hover:text-dw-accent font-mono border border-[#333] px-3 py-1 hover:border-dw-accent"
+                title="EJECT"
+              >
+                EJECT
+              </button>
+            )}
+          </div>
         </div>
 
         <Uploader />

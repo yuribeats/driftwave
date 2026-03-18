@@ -12,6 +12,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
     "@vercel/blob": "^2.3.1",
     "@yuribeats/audio-utils": "workspace:*",
     "next": "14.2.35",

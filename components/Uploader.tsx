@@ -42,6 +42,7 @@ export default function Uploader() {
     }
     try {
       await loadFromYouTube(url);
+      setYtUrl("");
     } catch (err) {
       setYtError(err instanceof Error ? err.message : "FETCH FAILED");
     }
@@ -72,7 +73,7 @@ export default function Uploader() {
         />
         {isLoading ? (
           <p className="text-dw-muted uppercase tracking-[0.15em] text-xs">
-            DECODING...
+            LOADING...
           </p>
         ) : (
           <p className="text-dw-muted uppercase tracking-[0.15em] text-xs">

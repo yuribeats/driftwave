@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import ytdl from "@distube/ytdl-core";
 
-const COBALT_INSTANCES = [
-  "https://cookie.br0k3.me",
-  "https://pizza.br0k3.me",
-  "https://api.cobalt.blackcat.sweeux.org",
-];
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const { url } = await req.json();
@@ -13,47 +10,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 
-  for (const instance of COBALT_INSTANCES) {
-    try {
-      const response = await fetch(instance, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          url,
-          downloadMode: "audio",
-          audioFormat: "mp3",
-          audioBitrate: "320",
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || data.status === "error") {
-        continue;
-      }
-
-      if (data.url) {
-        const audioResponse = await fetch(data.url);
-        const audioBuffer = await audioResponse.arrayBuffer();
-        return new NextResponse(audioBuffer, {
-          headers: {
-            "Content-Type":
-              audioResponse.headers.get("Content-Type") ?? "audio/mpeg",
-            "Content-Disposition": `attachment; filename="audio.mp3"`,
-            "X-Audio-Title": data.filename ?? "youtube-audio",
-          },
-        });
-      }
-    } catch {
-      continue;
-    }
+  if (!ytdl.validateURL(url)) {
+    return NextResponse.json({ error: "Invalid YouTube URL" }, { status: 400 });
   }
 
-  return NextResponse.json(
-    { error: "All Cobalt instances failed" },
-    { status: 502 }
-  );
+  try {
+    const info = await ytdl.getInfo(url);
+    const title =
+      info.videoDetails.title
+        .replace(/[^\w\s-]/g, "")
+        .trim()
+        .substring(0, 80) || "youtube-audio";
+
+    // Get best audio-only format
+    const format = ytdl.chooseFormat(info.formats, {
+      quality: "highestaudio",
+      filter: "audioonly",
+    });
+
+    const response = await fetch(format.url);
+    const buffer = await response.arrayBuffer();
+
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type": format.mimeType?.split(";")[0] ?? "audio/webm",
+        "Content-Disposition": `attachment; filename="audio"`,
+        "X-Audio-Title": title,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to extract audio";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

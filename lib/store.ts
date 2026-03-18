@@ -48,6 +48,7 @@ interface AppStore {
   randomize: () => void;
   share: () => Promise<string | null>;
   loadShare: (id: string) => Promise<void>;
+  eject: () => void;
   clearError: () => void;
 }
 
@@ -403,6 +404,17 @@ export const useStore = create<AppStore>((set, get) => ({
         error: err instanceof Error ? err.message : "Failed to load shared track",
       });
     }
+  },
+
+  eject: () => {
+    get().stop();
+    set({
+      sourceBuffer: null,
+      sourceFile: null,
+      sourceFilename: null,
+      youtubeUrl: null,
+      params: { ...SIMPLE_DEFAULTS },
+    });
   },
 
   clearError: () => set({ error: null }),
