@@ -62,6 +62,7 @@ interface AppStore {
   share: () => Promise<string | null>;
   loadShare: (id: string) => Promise<void>;
   loadPlaylistItem: (item: PlaylistItem) => Promise<void>;
+  seek: (time: number) => void;
   eject: () => void;
   clearError: () => void;
 }
@@ -526,6 +527,18 @@ export const useStore = create<AppStore>((set, get) => ({
         isLoading: false,
         error: err instanceof Error ? err.message : "Failed to load track",
       });
+    }
+  },
+
+  seek: (time: number) => {
+    const { sourceBuffer, isPlaying } = get();
+    if (!sourceBuffer) return;
+    const clamped = Math.max(0, Math.min(time, sourceBuffer.duration - 0.1));
+    set({ pauseOffset: clamped });
+    if (isPlaying) {
+      get().stop();
+      set({ pauseOffset: clamped });
+      get().play();
     }
   },
 

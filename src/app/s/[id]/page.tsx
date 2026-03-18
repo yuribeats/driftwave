@@ -5,6 +5,7 @@ import { useStore } from "../../../../lib/store";
 import SpectrumAnalyzer from "../../../../components/SpectrumAnalyzer";
 import Controls from "../../../../components/Controls";
 import Transport from "../../../../components/Transport";
+import ProgressBar from "../../../../components/ProgressBar";
 import DownloadButton from "../../../../components/DownloadButton";
 import Toast from "../../../../components/Toast";
 
@@ -49,10 +50,14 @@ export default function SharePage({ params }: { params: { id: string } }) {
 
         {sourceBuffer && (
           <div className="wood-grain p-[6px]">
-            <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-4 py-3 flex items-center gap-3">
-              <Transport />
-              <div className="flex-1" />
-              <DownloadButton />
+            <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-4 py-3 flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <Transport />
+                <ProgressBar />
+              </div>
+              <div className="flex items-center justify-end">
+                <DownloadButton />
+              </div>
             </div>
           </div>
         )}

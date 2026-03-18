@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Uploader from "../../components/Uploader";
 import SpectrumAnalyzer from "../../components/SpectrumAnalyzer";
 import Controls from "../../components/Controls";
 import Transport from "../../components/Transport";
 import DownloadButton from "../../components/DownloadButton";
-import Playlist from "../../components/Playlist";
+import ProgressBar from "../../components/ProgressBar";
 import Toast from "../../components/Toast";
 import { useStore } from "../../lib/store";
 
@@ -17,17 +16,6 @@ export default function Home() {
   const sourceBuffer = useStore((s) => s.sourceBuffer);
   const sourceFilename = useStore((s) => s.sourceFilename);
   const randomize = useStore((s) => s.randomize);
-  const share = useStore((s) => s.share);
-  const isSharing = useStore((s) => s.isSharing);
-  const [shared, setShared] = useState(false);
-
-  const handleShare = async () => {
-    const url = await share();
-    if (url) {
-      setShared(true);
-      setTimeout(() => setShared(false), 2000);
-    }
-  };
 
   return (
     <main className="min-h-screen wood-grain p-4 sm:p-8">
@@ -53,25 +41,22 @@ export default function Home() {
         {/* Transport bar */}
         {sourceBuffer && (
           <div className="wood-grain p-[6px]">
-            <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-4 py-3 flex items-center gap-3">
-              <Transport />
-              <button onClick={randomize} className={btnClass}>
-                RANDOM
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={handleShare}
-                disabled={isSharing}
-                className={btnClass}
-              >
-                {isSharing ? "SHARING..." : shared ? "LINK COPIED" : "SHARE"}
-              </button>
-              <DownloadButton />
+            <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-4 py-3 flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <Transport />
+                <ProgressBar />
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={randomize} className={btnClass}>
+                  RANDOM
+                </button>
+                <div className="flex-1" />
+                <DownloadButton />
+              </div>
             </div>
           </div>
         )}
 
-        <Playlist />
         <Toast />
       </div>
     </main>
