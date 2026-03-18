@@ -58,20 +58,20 @@ export default function ProgressBar() {
 
   return (
     <div className="flex items-center gap-3 flex-1">
-      <span className="text-[10px] text-dw-vfd-teal font-mono w-10 text-right" style={{ textShadow: "0 0 8px rgba(0,229,204,0.4)" }}>
+      <span className="text-[10px] text-dw-amber font-mono w-10 text-right">
         {formatTime(elapsed)}
       </span>
       <div
         ref={barRef}
-        className="flex-1 h-[4px] bg-[#111] border border-dw-panel-border relative"
+        className="flex-1 h-[6px] bg-[#222] border border-[#444] relative"
         onClick={handleClick}
       >
         <div
           className="absolute top-0 left-0 h-full"
           style={{
             width: `${progress * 100}%`,
-            background: "linear-gradient(90deg, #007a6e, #00e5cc)",
-            boxShadow: "0 0 6px rgba(0,229,204,0.3)",
+            background: "linear-gradient(90deg, #a06020, #e89030)",
+            boxShadow: "0 0 4px rgba(232, 144, 48, 0.3)",
           }}
         />
       </div>

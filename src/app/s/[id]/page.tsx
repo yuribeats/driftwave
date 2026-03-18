@@ -20,41 +20,37 @@ export default function SharePage({ params }: { params: { id: string } }) {
   }, [params.id, loadShare]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center" style={{ background: "#060606" }}>
-      <div className="flex max-w-[960px] w-full">
-        <div className="wood-left hidden sm:block" />
-
-        <div className="flex-1 flex flex-col relative" style={{ background: "var(--panel-face)", border: "1px solid var(--panel-border)" }}>
-          <div className="screw absolute top-2 left-2" style={{ zIndex: 10 }} />
-          <div className="screw absolute top-2 right-2" style={{ zIndex: 10 }} />
-
-          <div className="px-4 py-2 flex items-center justify-between border-b border-dw-panel-border">
-            <a href="/" className="flex flex-col">
-              <span className="text-[13px] text-white uppercase tracking-[0.15em] font-bold font-mono">KENWOOD</span>
-              <span className="text-[8px] text-dw-muted font-mono tracking-wider">KRC-859W</span>
+    <main className="min-h-screen wood-grain p-4 sm:p-8">
+      <div className="max-w-4xl mx-auto flex flex-col gap-1">
+        <div className="wood-grain p-[6px]">
+          <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-6 py-3 flex items-center justify-between">
+            <a href="/" className="text-sm text-[#333] uppercase tracking-[0.2em] font-bold">
+              THE SLOWED AND REVERB MACHINE
             </a>
             {sourceFilename && (
-              <span className="text-[10px] text-dw-vfd-teal-dim uppercase tracking-[0.1em] font-mono">
+              <span className="text-[10px] text-[#555] uppercase tracking-[0.1em]">
                 {sourceFilename}
               </span>
             )}
           </div>
+        </div>
 
-          {isLoading && (
-            <div className="px-4 py-10 text-center">
-              <p className="text-dw-vfd-teal uppercase tracking-[0.15em] text-[9px] font-mono" style={{ textShadow: "0 0 8px rgba(0,229,204,0.4)" }}>
+        {isLoading && (
+          <div className="wood-grain p-[6px]">
+            <div className="dark-faceplate border border-[#444] p-10 text-center">
+              <p className="text-dw-amber uppercase tracking-[0.15em] text-xs">
                 LOADING SHARED TRACK...
               </p>
             </div>
-          )}
+          </div>
+        )}
 
-          <SpectrumAnalyzer />
-          <div className="panel-seam" />
-          <Controls />
-          <div className="panel-seam" />
+        <SpectrumAnalyzer />
+        <Controls />
 
-          {sourceBuffer && (
-            <div className="px-4 py-3 flex flex-col gap-2">
+        {sourceBuffer && (
+          <div className="wood-grain p-[6px]">
+            <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-4 py-3 flex flex-col gap-2">
               <div className="flex items-center gap-3">
                 <Transport />
                 <ProgressBar />
@@ -63,16 +59,11 @@ export default function SharePage({ params }: { params: { id: string } }) {
                 <DownloadButton />
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          <div className="screw absolute bottom-2 left-2" style={{ zIndex: 10 }} />
-          <div className="screw absolute bottom-2 right-2" style={{ zIndex: 10 }} />
-          <div className="h-4" />
-        </div>
-
-        <div className="wood-right hidden sm:block" />
+        <Toast />
       </div>
-      <Toast />
     </main>
   );
 }

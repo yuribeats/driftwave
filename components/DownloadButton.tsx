@@ -11,8 +11,7 @@ export default function DownloadButton() {
     <button
       onClick={download}
       disabled={!sourceBuffer || isExporting}
-      className="bg-gradient-to-b from-[#222] to-[#111] border border-dw-vfd-teal text-dw-vfd-teal px-5 py-3 text-[8px] uppercase tracking-[0.08em] font-mono shadow-[0_1px_0_rgba(255,255,255,0.08),inset_0_1px_2px_rgba(0,0,0,0.6)] hover:text-white active:from-[#111] active:to-[#1a1a1a] active:translate-y-px disabled:opacity-50"
-      style={{ textShadow: "0 0 6px rgba(0,229,204,0.4)" }}
+      className="bg-gradient-to-b from-[#c0c0c0] via-[#a0a0a0] to-[#888] border border-dw-amber text-[#333] px-5 py-3 text-xs uppercase tracking-[0.15em] shadow-[0_2px_4px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.4)] hover:from-[#d0d0d0] hover:to-[#999] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] disabled:opacity-50 font-mono"
     >
       {isExporting ? "EXPORTING..." : "DOWNLOAD WAV"}
     </button>

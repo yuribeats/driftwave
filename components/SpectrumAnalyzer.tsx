@@ -29,12 +29,12 @@ export default function SpectrumAnalyzer() {
     const width = rect.width;
     const height = rect.height;
 
-    // VFD dark background
-    ctx.fillStyle = "#050e08";
+    // Dark tinted glass background
+    ctx.fillStyle = "#080808";
     ctx.fillRect(0, 0, width, height);
 
-    // Subtle teal grid lines
-    ctx.strokeStyle = "rgba(0, 229, 204, 0.03)";
+    // Subtle amber grid lines
+    ctx.strokeStyle = "rgba(232, 144, 48, 0.04)";
     ctx.lineWidth = 1;
     for (let y = 0; y < height; y += 12) {
       ctx.beginPath();
@@ -65,20 +65,20 @@ export default function SpectrumAnalyzer() {
         const segY = height - (s + 1) * (segmentHeight + segmentGap);
         const ratio = s / totalSegments;
 
-        // VFD teal color scheme: dim teal → bright teal → white-teal
+        // Amber color scheme: dim amber → bright amber → hot amber/white
         let r, g, b;
         if (ratio < 0.5) {
-          r = 0;
-          g = 120 + ratio * 200;
-          b = 100 + ratio * 160;
+          r = 160 + ratio * 140;
+          g = 80 + ratio * 80;
+          b = 20;
         } else if (ratio < 0.8) {
-          r = 0;
-          g = 229;
-          b = 204;
+          r = 232;
+          g = 144;
+          b = 30 + (ratio - 0.5) * 60;
         } else {
-          r = (ratio - 0.8) * 400;
-          g = 229 + (ratio - 0.8) * 130;
-          b = 204 + (ratio - 0.8) * 260;
+          r = 255;
+          g = 170 + (ratio - 0.8) * 200;
+          b = 60 + (ratio - 0.8) * 200;
         }
 
         ctx.fillStyle = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
@@ -95,7 +95,7 @@ export default function SpectrumAnalyzer() {
       const peakSegment = Math.floor(peaksRef.current[i] * totalSegments);
       if (peakSegment > 0) {
         const peakY = height - peakSegment * (segmentHeight + segmentGap);
-        ctx.fillStyle = "rgb(0, 255, 200)";
+        ctx.fillStyle = "rgb(255, 200, 100)";
         ctx.fillRect(x, peakY, barWidth, segmentHeight);
       }
     }
@@ -123,9 +123,13 @@ export default function SpectrumAnalyzer() {
   }, [isPlaying, draw]);
 
   return (
-    <div className="px-3 py-2">
-      <div className="vfd-display p-1">
-        <canvas ref={canvasRef} className="w-full h-32 block" />
+    <div className="wood-grain p-[6px]">
+      <div className="dark-faceplate border border-[#444] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div className="p-3">
+          <div className="tinted-glass border border-[#222] p-1">
+            <canvas ref={canvasRef} className="w-full h-36 block" />
+          </div>
+        </div>
       </div>
     </div>
   );

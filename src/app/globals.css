@@ -2,169 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/css/dseg.css');
-
-:root {
-  --chassis:         #0a0a0a;
-  --panel-face:      #111111;
-  --panel-border:    #1e1e1e;
-
-  --wood-base:       #5c3a1e;
-  --wood-mid:        #8b5e3c;
-  --wood-highlight:  #c4894f;
-  --wood-grain:      #3d2410;
-
-  --vfd-bg:          #050e08;
-  --vfd-teal:        #00e5cc;
-  --vfd-teal-dim:    #007a6e;
-  --vfd-amber:       #ffb300;
-  --vfd-amber-dim:   #7a5500;
-  --vfd-green:       #00ff88;
-  --vfd-red:         #ff2200;
-  --vfd-blue:        #0088ff;
-
-  --btn-face:        #1a1a1a;
-  --btn-border:      #2a2a2a;
-  --btn-label:       #cccccc;
-  --btn-label-dim:   #555555;
-  --btn-active:      #00e5cc;
-  --btn-aud:         #ccff00;
+* {
+  border-radius: 0;
 }
 
-* { border-radius: 0; }
-
 body {
-  background: #060606;
-  color: #cccccc;
+  background: #1a120b;
+  color: #e8e0d0;
   font-family: var(--font-ibm-plex-mono), monospace;
 }
 
-/* Burl wood side panels */
-.wood-left {
-  width: 48px;
-  flex-shrink: 0;
-  background: linear-gradient(
-    105deg,
-    #3d2410 0%, #5c3a1e 8%, #8b5e3c 15%, #c4894f 22%,
-    #8b5e3c 28%, #5c3a1e 35%, #7a4f2e 42%, #c4894f 50%,
-    #8b5e3c 58%, #5c3a1e 65%, #3d2410 72%, #6b4422 80%,
-    #c4894f 88%, #5c3a1e 95%, #3d2410 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.15),
-    inset 0 -1px 0 rgba(0,0,0,0.5),
-    inset -2px 0 4px rgba(0,0,0,0.4);
-  border-radius: 4px 0 0 4px;
+/* Walnut wood grain texture */
+.wood-grain {
+  background:
+    repeating-linear-gradient(
+      2deg,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,0.08) 3px,
+      rgba(0,0,0,0.08) 4px
+    ),
+    repeating-linear-gradient(
+      178deg,
+      transparent,
+      transparent 7px,
+      rgba(0,0,0,0.05) 7px,
+      rgba(0,0,0,0.05) 8px
+    ),
+    linear-gradient(180deg, #4a3425 0%, #3d2b1f 30%, #2a1a10 70%, #3d2b1f 100%);
 }
 
-.wood-right {
-  width: 48px;
-  flex-shrink: 0;
-  background: linear-gradient(
-    -105deg,
-    #3d2410 0%, #5c3a1e 8%, #8b5e3c 15%, #c4894f 22%,
-    #8b5e3c 28%, #5c3a1e 35%, #7a4f2e 42%, #c4894f 50%,
-    #8b5e3c 58%, #5c3a1e 65%, #3d2410 72%, #6b4422 80%,
-    #c4894f 88%, #5c3a1e 95%, #3d2410 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.15),
-    inset 0 -1px 0 rgba(0,0,0,0.5),
-    inset 2px 0 4px rgba(0,0,0,0.4);
-  border-radius: 0 4px 4px 0;
+/* Brushed aluminum faceplate */
+.brushed-aluminum {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(255,255,255,0.03) 1px,
+      rgba(255,255,255,0.03) 2px
+    ),
+    linear-gradient(180deg, #a0a0a0 0%, #909090 15%, #888888 50%, #909090 85%, #a0a0a0 100%);
 }
 
-/* VFD display area */
-.vfd-display {
-  background: var(--vfd-bg);
-  border: 1px solid #0a1a14;
-  box-shadow: inset 0 0 12px rgba(0,0,0,0.9);
-  animation: vfd-flicker 8s ease-in-out infinite;
+/* Dark faceplate section */
+.dark-faceplate {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(255,255,255,0.02) 1px,
+      rgba(255,255,255,0.02) 2px
+    ),
+    linear-gradient(180deg, #3a3a3e 0%, #2a2a2e 50%, #222226 100%);
 }
 
-@keyframes vfd-flicker {
-  0%, 100% { opacity: 1; }
-  92%       { opacity: 1; }
-  93%       { opacity: 0.97; }
-  94%       { opacity: 1; }
-  97%       { opacity: 0.98; }
+/* Tinted glass display */
+.tinted-glass {
+  background: linear-gradient(180deg, #0a0a0a 0%, #0d0d0d 50%, #0a0a0a 100%);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), inset 0 -1px 0 rgba(255,255,255,0.03);
 }
 
-/* Panel seam between sections */
-.panel-seam {
-  height: 1px;
-  background: var(--panel-border);
-  box-shadow: 0 1px 0 rgba(255,255,255,0.03);
-}
-
-/* Dark knob */
-.dark-knob {
+/* Chrome knob sunburst */
+.chrome-knob {
   background: conic-gradient(
     from 0deg,
-    #2a2a2a, #3a3a3a 15deg, #1a1a1a 30deg,
-    #2e2e2e 45deg, #3a3a3a 60deg, #1a1a1a 75deg,
-    #2a2a2a 90deg, #3a3a3a 105deg, #1a1a1a 120deg,
-    #2e2e2e 135deg, #3a3a3a 150deg, #1a1a1a 165deg,
-    #2a2a2a 180deg, #3a3a3a 195deg, #1a1a1a 210deg,
-    #2e2e2e 225deg, #3a3a3a 240deg, #1a1a1a 255deg,
-    #2a2a2a 270deg, #3a3a3a 285deg, #1a1a1a 300deg,
-    #2e2e2e 315deg, #3a3a3a 330deg, #1a1a1a 345deg,
-    #2a2a2a 360deg
+    #c8c8c8, #f0f0f0 10deg, #a8a8a8 20deg,
+    #d8d8d8 30deg, #f0f0f0 40deg, #a8a8a8 50deg,
+    #c8c8c8 60deg, #f0f0f0 70deg, #a0a0a0 80deg,
+    #d0d0d0 90deg, #f0f0f0 100deg, #a8a8a8 110deg,
+    #c8c8c8 120deg, #f0f0f0 130deg, #a0a0a0 140deg,
+    #d8d8d8 150deg, #f0f0f0 160deg, #a8a8a8 170deg,
+    #c8c8c8 180deg, #f0f0f0 190deg, #a0a0a0 200deg,
+    #d0d0d0 210deg, #f0f0f0 220deg, #a8a8a8 230deg,
+    #c8c8c8 240deg, #f0f0f0 250deg, #a0a0a0 260deg,
+    #d8d8d8 270deg, #f0f0f0 280deg, #a8a8a8 290deg,
+    #c8c8c8 300deg, #f0f0f0 310deg, #a0a0a0 320deg,
+    #d0d0d0 330deg, #f0f0f0 340deg, #a8a8a8 350deg,
+    #c8c8c8 360deg
   );
   box-shadow:
-    0 3px 10px rgba(0,0,0,0.6),
-    0 1px 0 rgba(255,255,255,0.06),
-    inset 0 1px 2px rgba(255,255,255,0.08);
+    0 4px 12px rgba(0,0,0,0.5),
+    0 1px 0 rgba(255,255,255,0.3),
+    inset 0 1px 3px rgba(255,255,255,0.4);
 }
 
 /* Screw head */
-.screw {
-  width: 8px;
-  height: 8px;
-  border-radius: 50% !important;
-  background: radial-gradient(circle at 35% 35%, #444, #111);
-  border: 1px solid #333;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
-}
-
-/* Slider styling */
-input[type='range'] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  height: 18px;
-}
-
-input[type='range']::-webkit-slider-runnable-track {
-  background: #222;
-  border: 1px solid #333;
-  height: 3px;
-  border-radius: 0;
-}
-
-input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 10px;
-  height: 18px;
-  background: linear-gradient(180deg, #555 0%, #2a2a2a 100%);
-  border: 1px solid #666;
-  border-radius: 1px;
-  margin-top: -8px;
-  box-shadow: 0 0 4px rgba(0,229,204,0.4);
-}
-
-input[type='range']::-moz-range-track {
-  background: #222;
-  border: 1px solid #333;
-  height: 3px;
-  border: none;
-}
-
-input[type='range']::-moz-range-thumb {
-  width: 10px;
-  height: 18px;
-  background: linear-gradient(180deg, #555 0%, #2a2a2a 100%);
-  border: 1px solid #666;
-  border-radius: 0;
+.panel-screw {
+  background: radial-gradient(circle at 35% 35%, #666, #333 60%, #222);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05);
 }

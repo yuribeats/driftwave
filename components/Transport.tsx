@@ -4,7 +4,7 @@ import { useRef, useCallback } from "react";
 import { useStore } from "../lib/store";
 
 const btnBase =
-  "bg-gradient-to-b from-[#222] to-[#111] border border-[#333] border-b-2 border-b-black shadow-[0_1px_0_rgba(255,255,255,0.08),inset_0_1px_2px_rgba(0,0,0,0.6)] active:from-[#111] active:to-[#1a1a1a] active:border-b active:translate-y-px disabled:opacity-50 flex items-center justify-center";
+  "bg-gradient-to-b from-[#c0c0c0] via-[#a0a0a0] to-[#888] border border-[#666] shadow-[0_2px_4px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.4)] hover:from-[#d0d0d0] hover:to-[#999] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] disabled:opacity-50 flex items-center justify-center";
 
 export default function Transport() {
   const sourceBuffer = useStore((s) => s.sourceBuffer);
@@ -47,7 +47,7 @@ export default function Transport() {
       <button
         onClick={rewind}
         disabled={off}
-        className={`${btnBase} w-9 h-9 text-dw-btn-label hover:text-dw-btn-active`}
+        className={`${btnBase} w-10 h-10 text-[#333] hover:text-[#111]`}
         title="REWIND"
       >
         <span className="text-sm leading-none">&#9198;</span>
@@ -56,7 +56,7 @@ export default function Transport() {
       {isPlaying ? (
         <button
           onClick={stop}
-          className={`${btnBase} w-9 h-9 text-dw-btn-label hover:text-dw-btn-active`}
+          className={`${btnBase} w-10 h-10 text-[#333]`}
           title="STOP"
         >
           <span className="text-xs leading-none">&#9632;</span>
@@ -65,7 +65,7 @@ export default function Transport() {
         <button
           onClick={play}
           disabled={off}
-          className={`${btnBase} w-9 h-9 text-dw-btn-label hover:text-dw-btn-active`}
+          className={`${btnBase} w-10 h-10 text-[#333]`}
           title="PLAY"
         >
           <span className="text-sm leading-none">&#9654;</span>
@@ -75,7 +75,7 @@ export default function Transport() {
       <button
         onClick={fastForward}
         disabled={off}
-        className={`${btnBase} w-9 h-9 text-dw-btn-label hover:text-dw-btn-active`}
+        className={`${btnBase} w-10 h-10 text-[#333] hover:text-[#111]`}
         title="FAST FORWARD"
       >
         <span className="text-sm leading-none">&#9197;</span>
@@ -83,7 +83,7 @@ export default function Transport() {
 
       <button
         onClick={handleEject}
-        className={`${btnBase} w-9 h-9 text-dw-btn-label hover:text-dw-btn-active ml-2`}
+        className={`${btnBase} w-10 h-10 text-[#333] hover:text-[#111] ml-2`}
         title="EJECT"
       >
         <span className="text-sm leading-none">&#9167;</span>
