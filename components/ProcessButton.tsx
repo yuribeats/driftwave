@@ -14,11 +14,11 @@ export default function ProcessButton() {
     <button
       onClick={process}
       disabled={isProcessing}
-      className="relative bg-surface-2 border border-accent text-accent px-6 py-3 text-sm uppercase tracking-widest hover:bg-accent hover:text-bg disabled:opacity-50 overflow-hidden"
+      className="relative bg-dw-surface2 border border-dw-accent text-dw-accent px-6 py-3 text-sm uppercase tracking-widest hover:bg-dw-accent hover:text-dw-bg disabled:opacity-50 overflow-hidden"
     >
       {isProcessing && (
         <div
-          className="absolute inset-0 bg-accent/20 transition-all"
+          className="absolute inset-0 bg-dw-accent/20 transition-all"
           style={{ width: `${progress * 100}%` }}
         />
       )}

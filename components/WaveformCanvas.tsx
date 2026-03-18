@@ -104,7 +104,7 @@ export default function WaveformCanvas() {
   if (!sourceBuffer) return null;
 
   return (
-    <div className="border border-border p-4">
+    <div className="border border-dw-border p-4">
       <canvas ref={canvasRef} className="w-full h-32 block" />
     </div>
   );

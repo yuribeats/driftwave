@@ -8,14 +8,14 @@ export default function ReverbControls() {
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="text-xs text-text-muted uppercase tracking-widest">
+      <label className="text-xs text-dw-muted uppercase tracking-widest">
         REVERB
       </label>
 
       <div className="flex flex-col gap-1">
-        <div className="flex justify-between text-xs text-text-muted uppercase tracking-wider">
+        <div className="flex justify-between text-xs text-dw-muted uppercase tracking-wider">
           <span>WET</span>
-          <span className="text-accent">{Math.round(params.reverbWet * 100)}%</span>
+          <span className="text-dw-accent">{Math.round(params.reverbWet * 100)}%</span>
         </div>
         <input
           type="range"
@@ -28,9 +28,9 @@ export default function ReverbControls() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <div className="flex justify-between text-xs text-text-muted uppercase tracking-wider">
+        <div className="flex justify-between text-xs text-dw-muted uppercase tracking-wider">
           <span>SIZE</span>
-          <span className="text-accent">{params.reverbDuration.toFixed(1)}S</span>
+          <span className="text-dw-accent">{params.reverbDuration.toFixed(1)}S</span>
         </div>
         <input
           type="range"
@@ -45,9 +45,9 @@ export default function ReverbControls() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <div className="flex justify-between text-xs text-text-muted uppercase tracking-wider">
+        <div className="flex justify-between text-xs text-dw-muted uppercase tracking-wider">
           <span>DECAY</span>
-          <span className="text-accent">{params.reverbDecay.toFixed(1)}</span>
+          <span className="text-dw-accent">{params.reverbDecay.toFixed(1)}</span>
         </div>
         <input
           type="range"

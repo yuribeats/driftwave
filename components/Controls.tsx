@@ -11,7 +11,7 @@ export default function Controls() {
   if (!sourceBuffer) return null;
 
   return (
-    <div className="border border-border p-4">
+    <div className="border border-dw-border p-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <SpeedPitchSlider />
         <ReverbControls />

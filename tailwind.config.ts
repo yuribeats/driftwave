@@ -8,15 +8,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#0d0d0d",
-        surface: "#1a1a1a",
-        "surface-2": "#242424",
-        border: "#2e2e2e",
-        accent: "#c8a96e",
-        "accent-dim": "#7a6440",
-        "text-primary": "#e8e0d0",
-        "text-muted": "#7a7570",
-        danger: "#c0392b",
+        dw: {
+          bg: "#0d0d0d",
+          surface: "#1a1a1a",
+          surface2: "#242424",
+          border: "#2e2e2e",
+          accent: "#c8a96e",
+          "accent-dim": "#7a6440",
+          text: "#e8e0d0",
+          muted: "#7a7570",
+          danger: "#c0392b",
+        },
       },
       fontFamily: {
         mono: ["var(--font-ibm-plex-mono)", "monospace"],

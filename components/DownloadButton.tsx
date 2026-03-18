@@ -11,7 +11,7 @@ export default function DownloadButton() {
   return (
     <button
       onClick={download}
-      className="bg-surface-2 border border-accent text-accent px-4 py-3 text-sm uppercase tracking-widest hover:bg-accent hover:text-bg"
+      className="bg-dw-surface2 border border-dw-accent text-dw-accent px-4 py-3 text-sm uppercase tracking-widest hover:bg-dw-accent hover:text-dw-bg"
     >
       DOWNLOAD WAV
     </button>

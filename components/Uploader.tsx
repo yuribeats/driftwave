@@ -50,10 +50,10 @@ export default function Uploader() {
   if (sourceBuffer && !isLoading) return null;
 
   return (
-    <div className="border border-border p-6">
+    <div className="border border-dw-border p-6">
       <div
         className={`border border-dashed ${
-          dragOver ? "border-accent" : "border-border"
+          dragOver ? "border-dw-accent" : "border-dw-border"
         } p-12 text-center transition-colors`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -71,11 +71,11 @@ export default function Uploader() {
           onChange={handleFileSelect}
         />
         {isLoading ? (
-          <p className="text-text-muted uppercase tracking-widest text-sm">
+          <p className="text-dw-muted uppercase tracking-widest text-sm">
             DECODING...
           </p>
         ) : (
-          <p className="text-text-muted uppercase tracking-widest text-sm">
+          <p className="text-dw-muted uppercase tracking-widest text-sm">
             DROP AUDIO FILE / CLICK TO BROWSE
           </p>
         )}
@@ -89,19 +89,19 @@ export default function Uploader() {
           onKeyDown={(e) => e.key === "Enter" && handleYouTube()}
           placeholder="PASTE YOUTUBE URL..."
           disabled={isLoading}
-          className="flex-1 bg-surface-2 border border-border px-3 py-2 text-sm text-text-primary placeholder:text-text-muted uppercase tracking-wider outline-none focus:border-accent disabled:opacity-50"
+          className="flex-1 bg-dw-surface2 border border-dw-border px-3 py-2 text-sm text-dw-text placeholder:text-dw-muted uppercase tracking-wider outline-none focus:border-dw-accent disabled:opacity-50"
         />
         <button
           onClick={handleYouTube}
           disabled={isLoading || !ytUrl.trim()}
-          className="bg-surface-2 border border-border px-4 py-2 text-sm text-accent uppercase tracking-wider hover:bg-border disabled:opacity-50 disabled:text-text-muted"
+          className="bg-dw-surface2 border border-dw-border px-4 py-2 text-sm text-dw-accent uppercase tracking-wider hover:bg-dw-border disabled:opacity-50 disabled:text-dw-muted"
         >
           {isLoading ? "..." : "FETCH"}
         </button>
       </div>
 
       {ytError && (
-        <p className="mt-2 text-danger text-xs uppercase tracking-wider">
+        <p className="mt-2 text-dw-danger text-xs uppercase tracking-wider">
           {ytError}
         </p>
       )}

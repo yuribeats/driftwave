@@ -10,7 +10,7 @@ export default function SpeedPitchSlider() {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs text-text-muted uppercase tracking-widest">
+      <label className="text-xs text-dw-muted uppercase tracking-widest">
         SPEED / PITCH
       </label>
       <input
@@ -21,7 +21,7 @@ export default function SpeedPitchSlider() {
         value={rate}
         onChange={(e) => setParam("rate", parseFloat(e.target.value))}
       />
-      <div className="flex justify-between text-xs text-accent font-mono">
+      <div className="flex justify-between text-xs text-dw-accent font-mono">
         <span>{rate.toFixed(2)}X</span>
         <span>{semitones.toFixed(1)}ST</span>
       </div>

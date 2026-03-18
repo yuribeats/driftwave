@@ -14,15 +14,15 @@ export default function Home() {
   const sourceFilename = useStore((s) => s.sourceFilename);
 
   return (
-    <main className="min-h-screen bg-bg p-4 sm:p-8">
+    <main className="min-h-screen bg-dw-bg p-4 sm:p-8">
       <div className="max-w-4xl mx-auto flex flex-col gap-4">
         {/* Header */}
-        <div className="flex items-center justify-between border border-border p-4">
-          <h1 className="text-lg text-text-primary uppercase tracking-[0.2em] font-bold">
+        <div className="flex items-center justify-between border border-dw-border p-4">
+          <h1 className="text-lg text-dw-text uppercase tracking-[0.2em] font-bold">
             DRIFTWAVE
           </h1>
           {sourceFilename && (
-            <span className="text-xs text-text-muted uppercase tracking-wider">
+            <span className="text-xs text-dw-muted uppercase tracking-wider">
               {sourceFilename}
             </span>
           )}

@@ -17,9 +17,9 @@ function EQSlider({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex justify-between text-xs text-text-muted uppercase tracking-wider">
+      <div className="flex justify-between text-xs text-dw-muted uppercase tracking-wider">
         <span>{label}</span>
-        <span className="text-accent">
+        <span className="text-dw-accent">
           {value > 0 ? "+" : ""}
           {value.toFixed(0)}DB
         </span>
@@ -42,7 +42,7 @@ export default function EQControls() {
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="text-xs text-text-muted uppercase tracking-widest">
+      <label className="text-xs text-dw-muted uppercase tracking-widest">
         EQ
       </label>
       <EQSlider

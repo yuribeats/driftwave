@@ -15,14 +15,14 @@ export default function Player() {
       {isPlaying ? (
         <button
           onClick={pause}
-          className="bg-surface-2 border border-border text-text-primary px-4 py-3 text-sm uppercase tracking-widest hover:border-accent"
+          className="bg-dw-surface2 border border-dw-border text-dw-text px-4 py-3 text-sm uppercase tracking-widest hover:border-dw-accent"
         >
           STOP
         </button>
       ) : (
         <button
           onClick={play}
-          className="bg-surface-2 border border-border text-text-primary px-4 py-3 text-sm uppercase tracking-widest hover:border-accent"
+          className="bg-dw-surface2 border border-dw-border text-dw-text px-4 py-3 text-sm uppercase tracking-widest hover:border-dw-accent"
         >
           PLAY
         </button>
