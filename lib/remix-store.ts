@@ -144,6 +144,7 @@ interface RemixStore {
   loadFile: (deck: DeckId, file: File) => Promise<void>;
   play: (deck: DeckId) => Promise<void>;
   stop: (deck: DeckId) => void;
+  pause: (deck: DeckId) => void;
   setParam: (deck: DeckId, key: keyof SimpleParams, value: number) => void;
   setVolume: (deck: DeckId, volume: number) => void;
   setCrossfader: (value: number) => void;
@@ -364,7 +365,11 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const key = deckKey(id);
     const deck = getDeck(get(), id);
     if (!deck.sourceBuffer) return;
-    if (deck.isPlaying) get().stop(id);
+    if (deck.isPlaying) {
+      // Kill existing source before restarting
+      try { deck.nodes?.source.stop(); } catch { /* ok */ }
+      set((s) => ({ [key]: { ...s[key], isPlaying: false, nodes: null } }));
+    }
 
     const ctx = getAudioContext();
     if (ctx.state === "suspended") await ctx.resume();
@@ -372,14 +377,13 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const cfGains = getCrossfaderGains(get().crossfader);
     const cfGain = id === "A" ? cfGains.a : cfGains.b;
 
-    // Use stem buffer if active, otherwise original
     const playBuffer = (deck.activeStem && deck.stemBuffers?.[deck.activeStem]) || deck.sourceBuffer;
 
-    // Region-aware offset and duration
-    const regionStart = deck.regionStart;
-    const regionEnd = deck.regionEnd > 0 ? deck.regionEnd : playBuffer.duration;
-    const playOffset = deck.pauseOffset > 0 ? deck.pauseOffset : regionStart;
-    const remaining = regionEnd - playOffset;
+    const rStart = deck.regionStart;
+    const rEnd = deck.regionEnd > 0 ? deck.regionEnd : playBuffer.duration;
+    const hasRegion = rStart > 0 || (deck.regionEnd > 0 && deck.regionEnd < playBuffer.duration);
+    const playOffset = deck.pauseOffset >= rStart ? deck.pauseOffset : rStart;
+    const remaining = rEnd - playOffset;
     const playDuration = remaining > 0 ? remaining : undefined;
 
     const nodes = buildDeckGraph(
@@ -391,9 +395,15 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       deck.volume,
       cfGain,
       () => {
-        set((s) => ({
-          [key]: { ...s[key], isPlaying: false, nodes: null, pauseOffset: regionStart },
-        }));
+        // When source ends: loop if region is set, otherwise stop
+        if (hasRegion && getDeck(get(), id).isPlaying) {
+          set((s) => ({ [key]: { ...s[key], pauseOffset: rStart, nodes: null } }));
+          get().play(id);
+        } else {
+          set((s) => ({
+            [key]: { ...s[key], isPlaying: false, nodes: null, pauseOffset: rStart },
+          }));
+        }
       }
     );
 
@@ -402,7 +412,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         ...s[key],
         isPlaying: true,
         nodes,
-        startedAt: ctx.currentTime - (playOffset - regionStart),
+        startedAt: ctx.currentTime - (playOffset - rStart),
       },
     }));
   },
@@ -411,16 +421,25 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const key = deckKey(id);
     const deck = getDeck(get(), id);
     if (deck.nodes) {
-      const ctx = getAudioContext();
-      const regionStart = deck.regionStart;
-      const elapsed = regionStart + (ctx.currentTime - deck.startedAt) * expandParams(deck.params).rate;
-      set((s) => ({
-        [key]: { ...s[key], pauseOffset: elapsed, isPlaying: false, nodes: null },
-      }));
       try { deck.nodes.source.stop(); } catch { /* already stopped */ }
-    } else {
-      set((s) => ({ [key]: { ...s[key], isPlaying: false, nodes: null } }));
     }
+    // Reset to region start
+    set((s) => ({
+      [key]: { ...s[key], pauseOffset: s[key].regionStart, isPlaying: false, nodes: null },
+    }));
+  },
+
+  pause: (id) => {
+    const key = deckKey(id);
+    const deck = getDeck(get(), id);
+    if (!deck.nodes || !deck.isPlaying) return;
+    const ctx = getAudioContext();
+    const rStart = deck.regionStart;
+    const elapsed = rStart + (ctx.currentTime - deck.startedAt) * expandParams(deck.params).rate;
+    try { deck.nodes.source.stop(); } catch { /* already stopped */ }
+    set((s) => ({
+      [key]: { ...s[key], pauseOffset: elapsed, isPlaying: false, nodes: null },
+    }));
   },
 
   setParam: (id, paramKey, value) => {
@@ -504,7 +523,10 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
   setRegion: (id, start, end) => {
     const dk = deckKey(id);
-    set((s) => ({ [dk]: { ...s[dk], regionStart: start, regionEnd: end } }));
+    const deck = getDeck(get(), id);
+    // Stop playback when adjusting region
+    if (deck.isPlaying) get().pause(id);
+    set((s) => ({ [dk]: { ...s[dk], regionStart: start, regionEnd: end, pauseOffset: start } }));
   },
 
   seek: async (id, position) => {
@@ -512,7 +534,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const deck = getDeck(get(), id);
     if (!deck.sourceBuffer) return;
     const wasPlaying = deck.isPlaying;
-    if (wasPlaying) get().stop(id);
+    if (wasPlaying) get().pause(id);
     set((s) => ({ [dk]: { ...s[dk], pauseOffset: position } }));
     if (wasPlaying) await get().play(id);
   },
