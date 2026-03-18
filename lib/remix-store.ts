@@ -3,6 +3,9 @@ import {
   SimpleParams,
   SIMPLE_DEFAULTS,
   expandParams,
+  detectBPM,
+  detectKey,
+  detectFirstTransient,
 } from "@yuribeats/audio-utils";
 import { decodeFile } from "./file-decoder";
 import { getAudioContext } from "./audio-context";
@@ -58,6 +61,8 @@ interface DeckNodes {
   deckGain: GainNode;
 }
 
+type StemType = "vocals" | "drums" | "instrumental";
+
 interface DeckState {
   sourceBuffer: AudioBuffer | null;
   sourceFilename: string | null;
@@ -68,6 +73,12 @@ interface DeckState {
   startedAt: number;
   pauseOffset: number;
   volume: number;
+  detectedBPM: number | null;
+  detectedKey: string | null;
+  cuePoint: number;  // seconds — first transient
+  activeStem: StemType | null;
+  stemBuffers: Partial<Record<StemType, AudioBuffer>> | null;
+  isStemLoading: boolean;
 }
 
 type DeckId = "A" | "B";
@@ -82,12 +93,52 @@ const defaultDeck = (): DeckState => ({
   startedAt: 0,
   pauseOffset: 0,
   volume: 0.8,
+  detectedBPM: null,
+  detectedKey: null,
+  cuePoint: 0,
+  activeStem: null,
+  stemBuffers: null,
+  isStemLoading: false,
 });
+
+interface MasterBusParams {
+  eqLow: number;       // -20 to +20 dB
+  eqMid: number;       // -20 to +20 dB
+  eqHigh: number;      // -20 to +20 dB
+  compAmount: number;   // 0–1 single knob
+  // Detail overrides
+  compThreshold?: number;  // -60 to 0 dB
+  compRatio?: number;      // 1 to 20
+  compAttack?: number;     // 0.001 to 0.5 s
+  compRelease?: number;    // 0.01 to 1 s
+  compKnee?: number;       // 0 to 40 dB
+  compMakeup?: number;     // 0 to 24 dB
+}
+
+function expandCompressor(m: MasterBusParams) {
+  const amt = m.compAmount;
+  return {
+    threshold: m.compThreshold ?? (amt * -40),
+    ratio: m.compRatio ?? (1 + amt * 11),
+    attack: m.compAttack ?? 0.01,
+    release: m.compRelease ?? 0.15,
+    knee: m.compKnee ?? 10,
+    makeup: m.compMakeup ?? (amt * 12),
+  };
+}
+
+const defaultMasterBus: MasterBusParams = {
+  eqLow: 0,
+  eqMid: 0,
+  eqHigh: 0,
+  compAmount: 0,
+};
 
 interface RemixStore {
   deckA: DeckState;
   deckB: DeckState;
   crossfader: number;
+  masterBus: MasterBusParams;
 
   loadFile: (deck: DeckId, file: File) => Promise<void>;
   play: (deck: DeckId) => Promise<void>;
@@ -96,16 +147,56 @@ interface RemixStore {
   setVolume: (deck: DeckId, volume: number) => void;
   setCrossfader: (value: number) => void;
   eject: (deck: DeckId) => void;
+  setMasterBus: <K extends keyof MasterBusParams>(key: K, value: MasterBusParams[K]) => void;
+  setStem: (deck: DeckId, stem: StemType | null) => void;
+  cue: (deck: DeckId) => Promise<void>;
 }
 
-/* ─── Shared output bus ─── */
+/* ─── Shared output bus: merger → EQ → compressor → makeup → destination ─── */
 let sharedMerger: GainNode | null = null;
+let masterLow: BiquadFilterNode | null = null;
+let masterMid: BiquadFilterNode | null = null;
+let masterHigh: BiquadFilterNode | null = null;
+let masterComp: DynamicsCompressorNode | null = null;
+let masterMakeup: GainNode | null = null;
 
 function getSharedMerger(): GainNode {
   const ctx = getAudioContext();
   if (!sharedMerger || sharedMerger.context !== ctx) {
     sharedMerger = ctx.createGain();
-    sharedMerger.connect(ctx.destination);
+
+    masterLow = ctx.createBiquadFilter();
+    masterLow.type = "lowshelf";
+    masterLow.frequency.value = 200;
+    masterLow.gain.value = 0;
+
+    masterMid = ctx.createBiquadFilter();
+    masterMid.type = "peaking";
+    masterMid.frequency.value = 2500;
+    masterMid.Q.value = 1.0;
+    masterMid.gain.value = 0;
+
+    masterHigh = ctx.createBiquadFilter();
+    masterHigh.type = "highshelf";
+    masterHigh.frequency.value = 8000;
+    masterHigh.gain.value = 0;
+
+    masterComp = ctx.createDynamicsCompressor();
+    masterComp.threshold.value = 0;
+    masterComp.ratio.value = 1;
+    masterComp.attack.value = 0.01;
+    masterComp.release.value = 0.15;
+    masterComp.knee.value = 10;
+
+    masterMakeup = ctx.createGain();
+    masterMakeup.gain.value = 1;
+
+    sharedMerger.connect(masterLow);
+    masterLow.connect(masterMid);
+    masterMid.connect(masterHigh);
+    masterHigh.connect(masterComp);
+    masterComp.connect(masterMakeup);
+    masterMakeup.connect(ctx.destination);
   }
   return sharedMerger;
 }
@@ -235,23 +326,30 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   deckA: defaultDeck(),
   deckB: defaultDeck(),
   crossfader: 0,
+  masterBus: { ...defaultMasterBus },
 
   loadFile: async (id, file) => {
-    const key = deckKey(id);
+    const dk = deckKey(id);
     get().stop(id);
-    set((s) => ({ [key]: { ...s[key], isLoading: true, pauseOffset: 0 } }));
+    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, detectedBPM: null, detectedKey: null, activeStem: null, stemBuffers: null } }));
     try {
       const audioBuffer = await decodeFile(file);
+      const bpm = detectBPM(audioBuffer);
+      const musicalKey = detectKey(audioBuffer);
+      const cuePoint = detectFirstTransient(audioBuffer);
       set((s) => ({
-        [key]: {
-          ...s[key],
+        [dk]: {
+          ...s[dk],
           sourceBuffer: audioBuffer,
           sourceFilename: file.name.replace(/\.[^/.]+$/, ""),
           isLoading: false,
+          detectedBPM: bpm || null,
+          detectedKey: musicalKey || null,
+          cuePoint,
         },
       }));
     } catch {
-      set((s) => ({ [key]: { ...s[key], isLoading: false } }));
+      set((s) => ({ [dk]: { ...s[dk], isLoading: false } }));
     }
   },
 
@@ -267,9 +365,12 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const cfGains = getCrossfaderGains(get().crossfader);
     const cfGain = id === "A" ? cfGains.a : cfGains.b;
 
+    // Use stem buffer if active, otherwise original
+    const playBuffer = (deck.activeStem && deck.stemBuffers?.[deck.activeStem]) || deck.sourceBuffer;
+
     const nodes = buildDeckGraph(
       ctx,
-      deck.sourceBuffer,
+      playBuffer,
       deck.params,
       deck.pauseOffset,
       deck.volume,
@@ -383,5 +484,54 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         ...defaultDeck(),
       },
     }));
+  },
+
+  cue: async (id) => {
+    const dk = deckKey(id);
+    const deck = getDeck(get(), id);
+    if (!deck.sourceBuffer) return;
+    if (deck.isPlaying) get().stop(id);
+
+    // Set pause offset to the cue point, then play
+    set((s) => ({ [dk]: { ...s[dk], pauseOffset: deck.cuePoint } }));
+    await get().play(id);
+  },
+
+  setStem: (id, stem) => {
+    const dk = deckKey(id);
+    const deck = getDeck(get(), id);
+    const wasPlaying = deck.isPlaying;
+    if (wasPlaying) get().stop(id);
+
+    set((s) => ({
+      [dk]: { ...s[dk], activeStem: stem, pauseOffset: 0 },
+    }));
+
+    if (wasPlaying) get().play(id);
+  },
+
+  setMasterBus: (key, value) => {
+    set((s) => ({
+      masterBus: { ...s.masterBus, [key]: value },
+    }));
+
+    const mb = get().masterBus;
+
+    // Update EQ nodes
+    if (key === "eqLow" && masterLow) masterLow.gain.value = mb.eqLow;
+    if (key === "eqMid" && masterMid) masterMid.gain.value = mb.eqMid;
+    if (key === "eqHigh" && masterHigh) masterHigh.gain.value = mb.eqHigh;
+
+    // Update compressor
+    const compKeys = ["compAmount", "compThreshold", "compRatio", "compAttack", "compRelease", "compKnee", "compMakeup"];
+    if (compKeys.includes(key as string) && masterComp && masterMakeup) {
+      const comp = expandCompressor(mb);
+      masterComp.threshold.value = comp.threshold;
+      masterComp.ratio.value = comp.ratio;
+      masterComp.attack.value = comp.attack;
+      masterComp.release.value = comp.release;
+      masterComp.knee.value = comp.knee;
+      masterMakeup.gain.value = Math.pow(10, comp.makeup / 20); // dB to linear
+    }
   },
 }));

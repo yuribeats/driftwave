@@ -43,6 +43,8 @@ function Deck({ id }: { id: DeckId }) {
   const setParam = useRemixStore((s) => s.setParam);
   const setVolume = useRemixStore((s) => s.setVolume);
   const eject = useRemixStore((s) => s.eject);
+  const setStem = useRemixStore((s) => s.setStem);
+  const cue = useRemixStore((s) => s.cue);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [stepMode, setStepMode] = useState(false);
@@ -120,14 +122,44 @@ function Deck({ id }: { id: DeckId }) {
           {deck.sourceFilename ? deck.sourceFilename.toUpperCase() : "NO TRACK"}
           {deck.isPlaying && " — PLAYING"}
         </div>
+        {deck.sourceBuffer && (
+          <div className="flex gap-3 text-[10px]" style={{ color: "var(--crt-dim)", fontFamily: "var(--font-crt)", fontSize: "12px" }}>
+            <span style={{ color: "var(--crt-bright)" }}>BPM: {deck.detectedBPM ?? "—"}</span>
+            <span style={{ color: "var(--crt-bright)" }}>KEY: {deck.detectedKey ?? "—"}</span>
+          </div>
+        )}
         <MiniSpectrum analyser={deck.nodes?.analyser ?? null} isPlaying={deck.isPlaying} />
       </div>
+
+      {/* Stem isolation */}
+      {deck.sourceBuffer && (
+        <div className="flex items-center gap-2 justify-center">
+          <span className="label" style={{ margin: 0, fontSize: "8px" }}>ISOLATE:</span>
+          {(["vocals", "drums", "instrumental"] as const).map((stem) => (
+            <button
+              key={stem}
+              onClick={() => setStem(id, deck.activeStem === stem ? null : stem)}
+              disabled={deck.isStemLoading}
+              className={detailBtnClass(deck.activeStem === stem)}
+              style={detailBtnStyle}
+            >
+              {stem === "instrumental" ? "INST" : stem.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Transport buttons */}
       <div className="flex items-center gap-3 justify-center">
         <div className="flex flex-col items-center">
           <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>LOAD</span>
           <button onClick={handleLoad} disabled={deck.isLoading} className="rocker-switch" style={{ width: "48px", height: "48px" }}>
+            <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
+          </button>
+        </div>
+        <div className="flex flex-col items-center">
+          <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>CUE</span>
+          <button onClick={() => cue(id)} disabled={!deck.sourceBuffer} className="rocker-switch" style={{ width: "48px", height: "48px" }}>
             <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
           </button>
         </div>
