@@ -1,7 +1,7 @@
 "use client";
 
 import Uploader from "../../components/Uploader";
-import WaveformCanvas from "../../components/WaveformCanvas";
+import SpectrumAnalyzer from "../../components/SpectrumAnalyzer";
 import Controls from "../../components/Controls";
 import Player from "../../components/Player";
 import DownloadButton from "../../components/DownloadButton";
@@ -28,7 +28,7 @@ export default function Home() {
         </div>
 
         <Uploader />
-        <WaveformCanvas />
+        <SpectrumAnalyzer />
         <Controls />
 
         {/* Transport bar */}

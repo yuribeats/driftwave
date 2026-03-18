@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import {
-  ProcessingParams,
-  DEFAULTS,
+  SimpleParams,
+  SIMPLE_DEFAULTS,
+  expandParams,
   encodeWAV,
   renderOffline,
 } from "@yuribeats/audio-utils";
@@ -17,6 +18,7 @@ interface AudioNodes {
   convolver: ConvolverNode;
   dryGain: GainNode;
   wetGain: GainNode;
+  analyser: AnalyserNode;
 }
 
 interface AppStore {
@@ -24,7 +26,7 @@ interface AppStore {
   sourceFilename: string | null;
   youtubeUrl: string | null;
 
-  params: ProcessingParams;
+  params: SimpleParams;
   isLoading: boolean;
   isPlaying: boolean;
   isExporting: boolean;
@@ -35,10 +37,7 @@ interface AppStore {
 
   loadFile: (file: File) => Promise<void>;
   loadFromYouTube: (url: string) => Promise<void>;
-  setParam: <K extends keyof ProcessingParams>(
-    key: K,
-    value: ProcessingParams[K]
-  ) => void;
+  setParam: <K extends keyof SimpleParams>(key: K, value: SimpleParams[K]) => void;
   play: () => void;
   stop: () => void;
   download: () => Promise<void>;
@@ -88,7 +87,7 @@ export const useStore = create<AppStore>((set, get) => ({
   sourceFilename: null,
   youtubeUrl: null,
 
-  params: { ...DEFAULTS },
+  params: { ...SIMPLE_DEFAULTS },
   isLoading: false,
   isPlaying: false,
   isExporting: false,
@@ -136,36 +135,26 @@ export const useStore = create<AppStore>((set, get) => ({
       params: { ...state.params, [key]: value },
     }));
 
-    // Update live audio nodes in real time
-    const { nodes, params: currentParams } = get();
+    const { nodes } = get();
     if (!nodes) return;
 
-    const newParams = { ...currentParams, [key]: value };
+    const newSimple = { ...get().params, [key]: value };
+    const expanded = expandParams(newSimple);
 
-    // Update playback rate
     if (key === "rate") {
-      nodes.source.playbackRate.value = value as number;
+      nodes.source.playbackRate.value = expanded.rate;
     }
 
-    // Update EQ
-    if (key === "eqLow") nodes.lowShelf.gain.value = value as number;
-    if (key === "eqMid") nodes.peaking.gain.value = value as number;
-    if (key === "eqHigh") nodes.highShelf.gain.value = value as number;
-
-    // Update reverb mix
-    if (key === "reverbWet") {
-      nodes.dryGain.gain.value = 1 - (value as number);
-      nodes.wetGain.gain.value = value as number;
+    if (key === "tone") {
+      nodes.lowShelf.gain.value = expanded.eqLow;
+      nodes.highShelf.gain.value = expanded.eqHigh;
     }
 
-    // Rebuild convolver IR if reverb shape changed
-    if (key === "reverbDuration" || key === "reverbDecay") {
+    if (key === "reverb") {
+      nodes.dryGain.gain.value = 1 - expanded.reverbWet;
+      nodes.wetGain.gain.value = expanded.reverbWet;
       const ctx = getAudioContext();
-      nodes.convolver.buffer = generateIR(
-        ctx,
-        newParams.reverbDuration,
-        newParams.reverbDecay
-      );
+      nodes.convolver.buffer = generateIR(ctx, expanded.reverbDuration, expanded.reverbDecay);
     }
   },
 
@@ -175,45 +164,55 @@ export const useStore = create<AppStore>((set, get) => ({
     if (isPlaying) get().stop();
 
     const ctx = getAudioContext();
+    const expanded = expandParams(params);
 
     const source = ctx.createBufferSource();
     source.buffer = sourceBuffer;
-    source.playbackRate.value = params.rate;
+    source.playbackRate.value = expanded.rate;
 
     const lowShelf = ctx.createBiquadFilter();
     lowShelf.type = "lowshelf";
     lowShelf.frequency.value = 200;
-    lowShelf.gain.value = params.eqLow;
+    lowShelf.gain.value = expanded.eqLow;
 
     const peaking = ctx.createBiquadFilter();
     peaking.type = "peaking";
     peaking.frequency.value = 2500;
     peaking.Q.value = 1.0;
-    peaking.gain.value = params.eqMid;
+    peaking.gain.value = expanded.eqMid;
 
     const highShelf = ctx.createBiquadFilter();
     highShelf.type = "highshelf";
     highShelf.frequency.value = 8000;
-    highShelf.gain.value = params.eqHigh;
+    highShelf.gain.value = expanded.eqHigh;
 
     const convolver = ctx.createConvolver();
-    convolver.buffer = generateIR(ctx, params.reverbDuration, params.reverbDecay);
+    convolver.buffer = generateIR(ctx, expanded.reverbDuration, expanded.reverbDecay);
 
     const dryGain = ctx.createGain();
-    dryGain.gain.value = 1 - params.reverbWet;
+    dryGain.gain.value = 1 - expanded.reverbWet;
 
     const wetGain = ctx.createGain();
-    wetGain.gain.value = params.reverbWet;
+    wetGain.gain.value = expanded.reverbWet;
 
-    // Connect chain
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+
+    // Merge node to combine dry + wet before analyser
+    const merger = ctx.createGain();
+    merger.gain.value = 1;
+
     source.connect(lowShelf);
     lowShelf.connect(peaking);
     peaking.connect(highShelf);
     highShelf.connect(dryGain);
     highShelf.connect(convolver);
     convolver.connect(wetGain);
-    dryGain.connect(ctx.destination);
-    wetGain.connect(ctx.destination);
+    dryGain.connect(merger);
+    wetGain.connect(merger);
+    merger.connect(analyser);
+    analyser.connect(ctx.destination);
 
     source.onended = () => {
       set({ isPlaying: false, nodes: null });
@@ -223,7 +222,7 @@ export const useStore = create<AppStore>((set, get) => ({
 
     set({
       isPlaying: true,
-      nodes: { source, lowShelf, peaking, highShelf, convolver, dryGain, wetGain },
+      nodes: { source, lowShelf, peaking, highShelf, convolver, dryGain, wetGain, analyser },
       startedAt: ctx.currentTime,
     });
   },
@@ -243,6 +242,7 @@ export const useStore = create<AppStore>((set, get) => ({
     set({ isExporting: true, error: null });
 
     try {
+      const expanded = expandParams(params);
       const channelData: Float32Array[] = [];
       for (let c = 0; c < sourceBuffer.numberOfChannels; c++) {
         channelData.push(new Float32Array(sourceBuffer.getChannelData(c)));
@@ -253,7 +253,7 @@ export const useStore = create<AppStore>((set, get) => ({
         sampleRate: sourceBuffer.sampleRate,
         numberOfChannels: sourceBuffer.numberOfChannels,
         length: sourceBuffer.length,
-        params,
+        params: expanded,
       });
 
       const ctx = getAudioContext();
