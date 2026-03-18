@@ -58,15 +58,31 @@ export default function WaveformDisplay({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragMode, setDragMode] = useState<DragMode>(null);
 
+  // Zoom: viewStart/viewEnd in seconds defines the visible window
+  const [zoom, setZoom] = useState(1); // 1 = full track visible
+  const [viewCenter, setViewCenter] = useState(0); // center of view in seconds
+
   const duration = audioBuffer?.duration ?? 0;
   const effectiveStart = regionStart;
   const effectiveEnd = regionEnd > 0 ? regionEnd : duration;
 
+  // Compute visible time window from zoom
+  const viewDuration = duration / zoom;
+  const halfView = viewDuration / 2;
+  const clampedCenter = Math.max(halfView, Math.min(duration - halfView, viewCenter || duration / 2));
+  const viewStart = Math.max(0, clampedCenter - halfView);
+  const viewEnd = Math.min(duration, clampedCenter + halfView);
+
+  // Reset zoom when buffer changes
   useEffect(() => {
     if (audioBuffer) {
-      peaksRef.current = computePeaks(audioBuffer, 200);
+      peaksRef.current = computePeaks(audioBuffer, 800);
+      setZoom(1);
+      setViewCenter(audioBuffer.duration / 2);
     } else {
       peaksRef.current = null;
+      setZoom(1);
+      setViewCenter(0);
     }
   }, [audioBuffer]);
 
@@ -98,40 +114,45 @@ export default function WaveformDisplay({
     }
 
     const numBars = peaks.length;
-    const barWidth = w / numBars;
     const midY = h / 2;
+    const vDur = viewEnd - viewStart;
+    if (vDur <= 0) return;
 
-    const rsX = (effectiveStart / duration) * w;
-    const reX = (effectiveEnd / duration) * w;
+    // Map time to pixel
+    const timeToX = (t: number) => ((t - viewStart) / vDur) * w;
+
+    // Determine which peaks are visible
+    const firstBar = Math.max(0, Math.floor((viewStart / duration) * numBars));
+    const lastBar = Math.min(numBars - 1, Math.ceil((viewEnd / duration) * numBars));
+    const visibleBars = lastBar - firstBar + 1;
+    const barWidth = w / visibleBars;
+
     const hasRegion = effectiveStart > 0 || effectiveEnd < duration;
 
-    // Dim outside region
-    if (hasRegion) {
-      // Draw all bars dimmed first, then bright ones on top
-      for (let i = 0; i < numBars; i++) {
-        const x = i * barWidth;
-        const barH = peaks[i] * midY * 0.9;
-        ctx.fillStyle = "#1a2a1c";
-        ctx.fillRect(x, midY - barH, Math.max(barWidth - 0.5, 1), barH);
-        ctx.fillRect(x, midY, Math.max(barWidth - 0.5, 1), barH * 0.6);
-      }
-      // Overlay dim shade
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      if (effectiveStart > 0) ctx.fillRect(0, 0, rsX, h);
-      if (effectiveEnd < duration) ctx.fillRect(reX, 0, w - reX, h);
-    }
-
     // Draw waveform bars
-    for (let i = 0; i < numBars; i++) {
-      const x = i * barWidth;
+    for (let i = firstBar; i <= lastBar; i++) {
+      const barTime = (i / numBars) * duration;
+      const x = timeToX(barTime);
       const barH = peaks[i] * midY * 0.9;
-      const posInTrack = (i / numBars) * duration;
-      const inRegion = posInTrack >= effectiveStart && posInTrack <= effectiveEnd;
+      const inRegion = barTime >= effectiveStart && barTime <= effectiveEnd;
 
-      if (hasRegion && !inRegion) continue; // already drawn dimmed
-      ctx.fillStyle = "#6b8f71";
+      if (hasRegion && !inRegion) {
+        ctx.fillStyle = "#1a2a1c";
+      } else {
+        ctx.fillStyle = "#6b8f71";
+      }
+
       ctx.fillRect(x, midY - barH, Math.max(barWidth - 0.5, 1), barH);
       ctx.fillRect(x, midY, Math.max(barWidth - 0.5, 1), barH * 0.6);
+    }
+
+    // Dim overlay outside region
+    if (hasRegion) {
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      const rsX = timeToX(effectiveStart);
+      const reX = timeToX(effectiveEnd);
+      if (rsX > 0) ctx.fillRect(0, 0, rsX, h);
+      if (reX < w) ctx.fillRect(reX, 0, w - reX, h);
     }
 
     // Center line
@@ -142,63 +163,76 @@ export default function WaveformDisplay({
     ctx.lineTo(w, midY);
     ctx.stroke();
 
-    // Always draw region handles — gold triangles at top corners
+    // Region handles
     const handleSize = 10;
+    const rsX = timeToX(effectiveStart);
+    const reX = timeToX(effectiveEnd);
 
-    // IN handle (left/start)
-    ctx.fillStyle = "#c8a96e";
-    ctx.strokeStyle = "#c8a96e";
-    ctx.lineWidth = 2;
-    // Vertical line
-    ctx.beginPath();
-    ctx.moveTo(rsX, 0);
-    ctx.lineTo(rsX, h);
-    ctx.stroke();
-    // Triangle pointing right
-    ctx.beginPath();
-    ctx.moveTo(rsX, 0);
-    ctx.lineTo(rsX + handleSize, 0);
-    ctx.lineTo(rsX, handleSize);
-    ctx.fill();
-    // Bottom triangle
-    ctx.beginPath();
-    ctx.moveTo(rsX, h);
-    ctx.lineTo(rsX + handleSize, h);
-    ctx.lineTo(rsX, h - handleSize);
-    ctx.fill();
+    // IN handle
+    if (rsX >= -handleSize && rsX <= w + handleSize) {
+      ctx.fillStyle = "#c8a96e";
+      ctx.strokeStyle = "#c8a96e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(rsX, 0);
+      ctx.lineTo(rsX, h);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(rsX, 0);
+      ctx.lineTo(rsX + handleSize, 0);
+      ctx.lineTo(rsX, handleSize);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(rsX, h);
+      ctx.lineTo(rsX + handleSize, h);
+      ctx.lineTo(rsX, h - handleSize);
+      ctx.fill();
+    }
 
-    // OUT handle (right/end)
-    ctx.beginPath();
-    ctx.moveTo(reX, 0);
-    ctx.lineTo(reX, h);
-    ctx.stroke();
-    // Triangle pointing left
-    ctx.beginPath();
-    ctx.moveTo(reX, 0);
-    ctx.lineTo(reX - handleSize, 0);
-    ctx.lineTo(reX, handleSize);
-    ctx.fill();
-    // Bottom triangle
-    ctx.beginPath();
-    ctx.moveTo(reX, h);
-    ctx.lineTo(reX - handleSize, h);
-    ctx.lineTo(reX, h - handleSize);
-    ctx.fill();
+    // OUT handle
+    if (reX >= -handleSize && reX <= w + handleSize) {
+      ctx.fillStyle = "#c8a96e";
+      ctx.strokeStyle = "#c8a96e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(reX, 0);
+      ctx.lineTo(reX, h);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(reX, 0);
+      ctx.lineTo(reX - handleSize, 0);
+      ctx.lineTo(reX, handleSize);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(reX, h);
+      ctx.lineTo(reX - handleSize, h);
+      ctx.lineTo(reX, h - handleSize);
+      ctx.fill();
+    }
 
     // Playback cursor
-    const pos = pauseOffset;
-    const cursorX = (pos / duration) * w;
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cursorX, 0);
-    ctx.lineTo(cursorX, h);
-    ctx.stroke();
+    const cursorX = timeToX(pauseOffset);
+    if (cursorX >= 0 && cursorX <= w) {
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cursorX, 0);
+      ctx.lineTo(cursorX, h);
+      ctx.stroke();
+    }
+
+    // Zoom indicator
+    if (zoom > 1) {
+      ctx.fillStyle = "rgba(200,169,110,0.7)";
+      ctx.font = "9px monospace";
+      ctx.textAlign = "right";
+      ctx.fillText(`${zoom.toFixed(1)}X`, w - 4, 10);
+    }
 
     if (isPlaying) {
       animRef.current = requestAnimationFrame(draw);
     }
-  }, [audioBuffer, isPlaying, pauseOffset, effectiveStart, effectiveEnd, duration]);
+  }, [audioBuffer, isPlaying, pauseOffset, effectiveStart, effectiveEnd, duration, viewStart, viewEnd, zoom]);
 
   useEffect(() => {
     draw();
@@ -214,24 +248,28 @@ export default function WaveformDisplay({
     if (!isPlaying) draw();
   }, [pauseOffset, isPlaying, draw]);
 
+  // Convert pixel X to time, accounting for zoom
   const getTimeFromX = useCallback((clientX: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect || !duration) return 0;
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    return (x / rect.width) * duration;
-  }, [duration]);
+    const vDur = viewEnd - viewStart;
+    return viewStart + (x / rect.width) * vDur;
+  }, [duration, viewStart, viewEnd]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (!audioBuffer) return;
+    e.stopPropagation();
+    e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const x = e.clientX - rect.left;
     const w = rect.width;
-    const rsX = (effectiveStart / duration) * w;
-    const reX = (effectiveEnd / duration) * w;
+    const vDur = viewEnd - viewStart;
+    const rsX = ((effectiveStart - viewStart) / vDur) * w;
+    const reX = ((effectiveEnd - viewStart) / vDur) * w;
 
-    // 16px hit zone for handles
     if (Math.abs(x - rsX) < 16) {
       setDragMode("regionStart");
     } else if (Math.abs(x - reX) < 16) {
@@ -242,19 +280,21 @@ export default function WaveformDisplay({
     }
 
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [audioBuffer, effectiveStart, effectiveEnd, duration, getTimeFromX, onSeek]);
+  }, [audioBuffer, effectiveStart, effectiveEnd, viewStart, viewEnd, getTimeFromX, onSeek]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragMode || !audioBuffer) return;
+    e.stopPropagation();
+    e.preventDefault();
     const t = getTimeFromX(e.clientX);
 
     if (dragMode === "seek") {
       onSeek(t);
     } else if (dragMode === "regionStart") {
-      const maxStart = effectiveEnd - 0.5;
+      const maxStart = effectiveEnd - 0.1;
       onRegionChange(Math.max(0, Math.min(t, maxStart)), regionEnd);
     } else if (dragMode === "regionEnd") {
-      const minEnd = effectiveStart + 0.5;
+      const minEnd = effectiveStart + 0.1;
       const newEnd = Math.min(duration, Math.max(t, minEnd));
       onRegionChange(regionStart, newEnd);
     }
@@ -264,11 +304,24 @@ export default function WaveformDisplay({
     setDragMode(null);
   }, []);
 
-  // Double-click to reset region
   const handleDoubleClick = useCallback(() => {
     if (!audioBuffer) return;
     onRegionChange(0, 0);
   }, [audioBuffer, onRegionChange]);
+
+  // Scroll wheel = zoom, centered on cursor position
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!audioBuffer || !duration) return;
+    e.preventDefault();
+
+    const cursorTime = getTimeFromX(e.clientX);
+    const zoomFactor = e.deltaY < 0 ? 1.3 : 1 / 1.3;
+    const newZoom = Math.max(1, Math.min(64, zoom * zoomFactor));
+
+    // Keep cursor time at the same screen position
+    setZoom(newZoom);
+    setViewCenter(cursorTime);
+  }, [audioBuffer, duration, zoom, getTimeFromX]);
 
   return (
     <div
@@ -278,6 +331,7 @@ export default function WaveformDisplay({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onDoubleClick={handleDoubleClick}
+      onWheel={handleWheel}
     >
       <canvas ref={canvasRef} className="w-full h-full block" />
     </div>
