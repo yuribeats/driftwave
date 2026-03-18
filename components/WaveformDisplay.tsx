@@ -309,31 +309,69 @@ export default function WaveformDisplay({
     onRegionChange(0, 0);
   }, [audioBuffer, onRegionChange]);
 
-  // Scroll wheel = zoom, centered on cursor position
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (!audioBuffer || !duration) return;
-    e.preventDefault();
+  const zoomIn = useCallback(() => {
+    if (!audioBuffer) return;
+    // Center on region midpoint when zooming
+    const regionMid = (effectiveStart + effectiveEnd) / 2;
+    setViewCenter(regionMid);
+    setZoom((z) => Math.min(64, z * 1.5));
+  }, [audioBuffer, effectiveStart, effectiveEnd]);
 
-    const cursorTime = getTimeFromX(e.clientX);
-    const zoomFactor = e.deltaY < 0 ? 1.3 : 1 / 1.3;
-    const newZoom = Math.max(1, Math.min(64, zoom * zoomFactor));
+  const zoomOut = useCallback(() => {
+    if (!audioBuffer) return;
+    const regionMid = (effectiveStart + effectiveEnd) / 2;
+    setViewCenter(regionMid);
+    setZoom((z) => Math.max(1, z / 1.5));
+  }, [audioBuffer, effectiveStart, effectiveEnd]);
 
-    // Keep cursor time at the same screen position
-    setZoom(newZoom);
-    setViewCenter(cursorTime);
-  }, [audioBuffer, duration, zoom, getTimeFromX]);
+  // Keyboard: + to zoom in, - to zoom out
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (!audioBuffer) return;
+      if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomIn(); }
+      if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomOut(); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [audioBuffer, zoomIn, zoomOut]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height: "80px", touchAction: "none", background: "#0d0d0d", borderRadius: "2px", overflow: "hidden" }}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onDoubleClick={handleDoubleClick}
-      onWheel={handleWheel}
-    >
-      <canvas ref={canvasRef} className="w-full h-full block" />
+    <div className="flex flex-col gap-1">
+      <div
+        ref={containerRef}
+        style={{ height: "80px", touchAction: "none", background: "#0d0d0d", borderRadius: "2px", overflow: "hidden" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onDoubleClick={handleDoubleClick}
+      >
+        <canvas ref={canvasRef} className="w-full h-full block" />
+      </div>
+      {audioBuffer && (
+        <div className="flex items-center gap-2 justify-end">
+          <span className="text-[8px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+            {zoom > 1 ? `${zoom.toFixed(1)}X` : "1X"}
+          </span>
+          <button
+            onClick={zoomOut}
+            disabled={zoom <= 1}
+            className="text-[10px] px-1.5 py-0 border border-[#555]"
+            style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent", lineHeight: "16px" }}
+          >
+            −
+          </button>
+          <button
+            onClick={zoomIn}
+            className="text-[10px] px-1.5 py-0 border border-[#555]"
+            style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent", lineHeight: "16px" }}
+          >
+            +
+          </button>
+          <span className="text-[7px]" style={{ color: "#555", fontFamily: "var(--font-tech)" }}>
+            OR +/− KEYS
+          </span>
+        </div>
+      )}
     </div>
   );
 }
