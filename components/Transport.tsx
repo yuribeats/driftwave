@@ -14,12 +14,13 @@ export default function Transport() {
   const fastForward = useStore((s) => s.fastForward);
   const eject = useStore((s) => s.eject);
 
-  if (!sourceBuffer) return null;
+  const off = !sourceBuffer;
 
   return (
     <div className="flex items-center gap-1">
       <button
         onClick={rewind}
+        disabled={off}
         className={`${btnBase} w-10 h-10 text-[#333] hover:text-[#111]`}
         title="REWIND"
       >
@@ -37,6 +38,7 @@ export default function Transport() {
       ) : (
         <button
           onClick={play}
+          disabled={off}
           className={`${btnBase} w-10 h-10 text-[#333]`}
           title="PLAY"
         >
@@ -46,6 +48,7 @@ export default function Transport() {
 
       <button
         onClick={fastForward}
+        disabled={off}
         className={`${btnBase} w-10 h-10 text-[#333] hover:text-[#111]`}
         title="FAST FORWARD"
       >
@@ -54,6 +57,7 @@ export default function Transport() {
 
       <button
         onClick={eject}
+        disabled={off}
         className={`${btnBase} w-10 h-10 text-[#333] hover:text-[#111] ml-2`}
         title="EJECT"
       >

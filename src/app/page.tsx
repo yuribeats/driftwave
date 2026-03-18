@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <main className="min-h-screen wood-grain p-4 sm:p-8">
       <div className="max-w-4xl mx-auto flex flex-col gap-1">
-        {/* Header - brushed aluminum faceplate */}
+        {/* Header */}
         <div className="wood-grain p-[6px]">
           <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-6 py-3 flex items-center justify-between">
             <h1 className="text-sm text-[#333] uppercase tracking-[0.2em] font-bold">
@@ -29,28 +29,25 @@ export default function Home() {
           </div>
         </div>
 
-        <Uploader />
         <SpectrumAnalyzer />
         <Controls />
 
         {/* Transport bar */}
-        {sourceBuffer && (
-          <div className="wood-grain p-[6px]">
-            <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-4 py-3 flex flex-col gap-2">
-              <div className="flex items-center gap-3">
-                <Transport />
-                <ProgressBar />
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={randomize} className={btnClass}>
-                  RANDOM
-                </button>
-                <div className="flex-1" />
-                <DownloadButton />
-              </div>
+        <div className="wood-grain p-[6px]">
+          <div className="brushed-aluminum border border-[#666] shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-4 py-3 flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <Transport />
+              <ProgressBar />
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={randomize} disabled={!sourceBuffer} className={btnClass}>
+                RANDOM
+              </button>
+              <div className="flex-1" />
+              <DownloadButton />
             </div>
           </div>
-        )}
+        </div>
 
         <Toast />
       </div>

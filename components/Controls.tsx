@@ -22,12 +22,9 @@ function snapToSemitone(speed: number): number {
 }
 
 export default function Controls() {
-  const sourceBuffer = useStore((s) => s.sourceBuffer);
   const params = useStore((s) => s.params);
   const setParam = useStore((s) => s.setParam);
   const [stepMode, setStepMode] = useState(false);
-
-  if (!sourceBuffer) return null;
 
   const rate = 1.0 + params.speed;
   const semitones = 12 * Math.log2(rate);

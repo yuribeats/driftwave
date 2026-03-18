@@ -7,7 +7,6 @@ const BAR_COUNT = 32;
 const BAR_GAP = 2;
 
 export default function SpectrumAnalyzer() {
-  const sourceBuffer = useStore((s) => s.sourceBuffer);
   const isPlaying = useStore((s) => s.isPlaying);
   const nodes = useStore((s) => s.nodes);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -122,8 +121,6 @@ export default function SpectrumAnalyzer() {
       draw();
     }
   }, [isPlaying, draw]);
-
-  if (!sourceBuffer) return null;
 
   return (
     <div className="wood-grain p-[6px]">
