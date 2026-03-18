@@ -9,7 +9,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DRIFTWAVE",
+  title: "THE SLOWED AND REVERB MACHINE",
   description: "Slowed + reverb machine",
 };
 

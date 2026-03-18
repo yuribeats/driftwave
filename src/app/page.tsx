@@ -19,7 +19,7 @@ export default function Home() {
         {/* Header */}
         <div className="flex items-center justify-between border border-dw-border p-4">
           <h1 className="text-lg text-dw-text uppercase tracking-[0.2em] font-bold">
-            DRIFTWAVE
+            THE SLOWED AND REVERB MACHINE
           </h1>
           {sourceFilename && (
             <span className="text-xs text-dw-muted uppercase tracking-wider">

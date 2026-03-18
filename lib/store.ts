@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { ProcessingParams, DEFAULTS, encodeWAV } from "@yuribeats/audio-utils";
+import {
+  ProcessingParams,
+  DEFAULTS,
+  encodeWAV,
+  renderOffline,
+} from "@yuribeats/audio-utils";
 import { decodeFile, decodeArrayBuffer } from "./file-decoder";
 import { fetchYouTubeAudio } from "./cobalt";
 import { getAudioContext } from "./audio-context";
@@ -123,59 +128,34 @@ export const useStore = create<AppStore>((set, get) => ({
     set({ isProcessing: true, progress: 0, error: null });
 
     try {
-      // Extract channel data for worker
       const channelData: Float32Array[] = [];
       for (let c = 0; c < sourceBuffer.numberOfChannels; c++) {
         channelData.push(new Float32Array(sourceBuffer.getChannelData(c)));
       }
 
-      const worker = new Worker(
-        new URL("./workers/renderer.worker.ts", import.meta.url)
-      );
+      set({ progress: 0.1 });
 
-      const result = await new Promise<AudioBuffer>((resolve, reject) => {
-        worker.onmessage = (e) => {
-          const msg = e.data;
-          if (msg.type === "PROGRESS") {
-            set({ progress: msg.value });
-          } else if (msg.type === "COMPLETE") {
-            const ctx = getAudioContext();
-            const buf = ctx.createBuffer(
-              msg.numberOfChannels,
-              msg.length,
-              msg.sampleRate
-            );
-            for (let c = 0; c < msg.numberOfChannels; c++) {
-              buf.getChannelData(c).set(msg.channelData[c]);
-            }
-            resolve(buf);
-            worker.terminate();
-          } else if (msg.type === "ERROR") {
-            reject(new Error(msg.message));
-            worker.terminate();
-          }
-        };
-        worker.onerror = (e) => {
-          reject(new Error(e.message));
-          worker.terminate();
-        };
-
-        // Transfer ArrayBuffers for performance
-        const transferable = channelData.map((ch) => ch.buffer);
-        worker.postMessage(
-          {
-            type: "RENDER",
-            channelData,
-            sampleRate: sourceBuffer.sampleRate,
-            numberOfChannels: sourceBuffer.numberOfChannels,
-            length: sourceBuffer.length,
-            params,
-          },
-          transferable
-        );
+      const result = await renderOffline({
+        channelData,
+        sampleRate: sourceBuffer.sampleRate,
+        numberOfChannels: sourceBuffer.numberOfChannels,
+        length: sourceBuffer.length,
+        params,
       });
 
-      set({ processedBuffer: result, isProcessing: false, progress: 1 });
+      set({ progress: 0.9 });
+
+      const ctx = getAudioContext();
+      const buf = ctx.createBuffer(
+        result.numberOfChannels,
+        result.length,
+        result.sampleRate
+      );
+      for (let c = 0; c < result.numberOfChannels; c++) {
+        buf.getChannelData(c).set(result.channelData[c]);
+      }
+
+      set({ processedBuffer: buf, isProcessing: false, progress: 1 });
     } catch (err) {
       set({
         isProcessing: false,
