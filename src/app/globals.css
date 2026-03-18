@@ -138,6 +138,7 @@ body {
   height: calc(100% - 10px);
   background: var(--panel-base);
   border-radius: 50%;
+  pointer-events: none;
 }
 
 .knob-body {

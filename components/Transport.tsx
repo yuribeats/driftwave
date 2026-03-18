@@ -10,8 +10,6 @@ export default function Transport() {
   const isPlaying = useStore((s) => s.isPlaying);
   const play = useStore((s) => s.play);
   const stop = useStore((s) => s.stop);
-  const rewind = useStore((s) => s.rewind);
-  const fastForward = useStore((s) => s.fastForward);
   const eject = useStore((s) => s.eject);
   const loadFile = useStore((s) => s.loadFile);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -51,28 +49,6 @@ export default function Transport() {
           disabled={!isPlaying && off}
           className={btnBase}
         >
-          <div className="w-2 h-2 rounded-full border-2 border-[#555]" />
-        </button>
-      </div>
-
-      {/* Rewind */}
-      <div className="flex flex-col items-center">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="label" style={{ margin: 0, fontSize: "10px" }}>REW</span>
-          <div className="led-cutout"><div className="led-rect led-green" /></div>
-        </div>
-        <button onClick={rewind} disabled={off} className={btnBase}>
-          <div className="w-2 h-2 rounded-full border-2 border-[#555]" />
-        </button>
-      </div>
-
-      {/* Fast Forward */}
-      <div className="flex flex-col items-center">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="label" style={{ margin: 0, fontSize: "10px" }}>FWD</span>
-          <div className="led-cutout"><div className="led-rect led-green" /></div>
-        </div>
-        <button onClick={fastForward} disabled={off} className={btnBase}>
           <div className="w-2 h-2 rounded-full border-2 border-[#555]" />
         </button>
       </div>

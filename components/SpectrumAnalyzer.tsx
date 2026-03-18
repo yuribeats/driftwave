@@ -129,7 +129,6 @@ export default function SpectrumAnalyzer() {
     <div className="crt" style={{ height: "180px" }}>
       <div className="absolute top-0 left-0 right-0 px-2 py-1 flex justify-between text-[10px] z-10" style={{ color: "var(--crt-bright)", borderBottom: "1px solid var(--crt-grid)" }}>
         <span>OUTPUT LEVEL</span>
-        <span>PEAK HOLD</span>
       </div>
       <div className="crt-grid w-full h-full pt-6 px-2 pb-2">
         <canvas ref={canvasRef} className="w-full h-full block" />
