@@ -3,15 +3,15 @@
 import { useRef, useEffect, useCallback } from "react";
 import { useStore } from "../lib/store";
 
+const BAR_COUNT = 32;
 const BAR_GAP = 2;
 
-export default function SpectrumAnalyzer({ compact }: { compact?: boolean }) {
-  const BAR_COUNT = compact ? 16 : 32;
+export default function SpectrumAnalyzer() {
   const isPlaying = useStore((s) => s.isPlaying);
   const nodes = useStore((s) => s.nodes);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
-  const peaksRef = useRef<number[]>(new Array(compact ? 16 : 32).fill(0));
+  const peaksRef = useRef<number[]>(new Array(BAR_COUNT).fill(0));
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -113,7 +113,7 @@ export default function SpectrumAnalyzer({ compact }: { compact?: boolean }) {
     if (isPlaying) {
       animRef.current = requestAnimationFrame(draw);
     }
-  }, [isPlaying, nodes, BAR_COUNT]);
+  }, [isPlaying, nodes]);
 
   useEffect(() => {
     draw();
@@ -130,11 +130,17 @@ export default function SpectrumAnalyzer({ compact }: { compact?: boolean }) {
       peaksRef.current = new Array(BAR_COUNT).fill(0);
       draw();
     }
-  }, [isPlaying, draw, BAR_COUNT]);
+  }, [isPlaying, draw]);
 
   return (
-    <div className="tinted-glass border border-[#222] p-1 h-full">
-      <canvas ref={canvasRef} className={`w-full ${compact ? "h-full" : "h-36"} block`} />
+    <div className="wood-grain p-[6px]">
+      <div className="dark-faceplate border border-[#444] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div className="p-3">
+          <div className="tinted-glass border border-[#222] p-1">
+            <canvas ref={canvasRef} className="w-full h-36 block" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

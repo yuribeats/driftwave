@@ -29,10 +29,10 @@ export default function Uploader() {
       <button
         onClick={() => inputRef.current?.click()}
         disabled={isLoading}
-        className="text-[10px] uppercase tracking-[0.15em] font-bold disabled:opacity-50"
+        className="text-sm uppercase tracking-[0.2em] font-bold disabled:opacity-50"
         style={{
-          color: sourceFilename ? "#666" : "#1a1a1a",
-          textShadow: "0 1px 0 rgba(255,255,255,0.3)",
+          color: sourceFilename ? "#555" : "#D4AF37",
+          textShadow: sourceFilename ? "none" : "0 0 8px rgba(212,175,55,0.4)",
         }}
       >
         {isLoading ? "LOADING..." : sourceFilename || "LOAD SONG"}

@@ -4,6 +4,16 @@ import { useState } from "react";
 import Knob from "./Knob";
 import { useStore } from "../lib/store";
 
+function PanelScrew() {
+  return (
+    <div className="w-[10px] h-[10px] rounded-full panel-screw">
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="w-[6px] h-[1px] bg-[#111]" />
+      </div>
+    </div>
+  );
+}
+
 function snapToSemitone(speed: number): number {
   const rate = 1.0 + speed;
   const semitones = 12 * Math.log2(rate);
@@ -28,8 +38,18 @@ export default function Controls() {
   };
 
   return (
-    <div className="px-4 py-4">
-      <div className="flex items-center justify-center gap-8 sm:gap-14">
+    <div className="wood-grain p-[6px]">
+      <div className="relative brushed-aluminum border border-[#666] shadow-[0_2px_12px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.3)]">
+        {/* Top highlight line */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.3)] to-transparent" />
+
+        <div className="absolute top-3 left-3"><PanelScrew /></div>
+        <div className="absolute top-3 right-3"><PanelScrew /></div>
+        <div className="absolute bottom-3 left-3"><PanelScrew /></div>
+        <div className="absolute bottom-3 right-3"><PanelScrew /></div>
+
+        <div className="px-8 py-8">
+          <div className="flex items-center justify-center gap-12 sm:gap-20">
             <div className="flex flex-col items-center gap-0">
               <Knob
                 value={params.speed}
@@ -44,15 +64,15 @@ export default function Controls() {
                 onClick={() => setStepMode(!stepMode)}
                 className={`mt-1 text-[8px] uppercase tracking-[0.15em] font-mono px-2 py-0.5 border ${
                   stepMode
-                    ? "text-[#1a1a1a] border-[#333] bg-[rgba(212,175,55,0.15)]"
-                    : "text-[#666] border-[#777]"
-                } hover:text-[#1a1a1a]`}
+                    ? "text-dw-gold border-dw-gold"
+                    : "text-[#666] border-[#666]"
+                } hover:text-dw-gold`}
               >
                 STEP
               </button>
             </div>
 
-            <div className="hidden sm:block w-[1px] h-[100px] bg-[#777] shadow-[1px_0_0_rgba(255,255,255,0.08)]" />
+            <div className="hidden sm:block w-[1px] h-[120px] bg-[#777] shadow-[1px_0_0_rgba(255,255,255,0.1)]" />
 
             <Knob
               value={params.reverb}
@@ -64,7 +84,7 @@ export default function Controls() {
               onChange={(v) => setParam("reverb", v)}
             />
 
-            <div className="hidden sm:block w-[1px] h-[100px] bg-[#777] shadow-[1px_0_0_rgba(255,255,255,0.08)]" />
+            <div className="hidden sm:block w-[1px] h-[120px] bg-[#777] shadow-[1px_0_0_rgba(255,255,255,0.1)]" />
 
             <Knob
               value={params.tone}
@@ -76,6 +96,8 @@ export default function Controls() {
               onChange={(v) => setParam("tone", v)}
             />
           </div>
+        </div>
+      </div>
     </div>
   );
 }

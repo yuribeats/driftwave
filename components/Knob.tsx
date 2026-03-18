@@ -137,7 +137,7 @@ export default function Knob({
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <span className="text-[10px] text-[#333] uppercase tracking-[0.2em] font-bold" style={{ textShadow: "0 1px 0 rgba(255,255,255,0.4)" }}>
+      <span className="text-[10px] text-dw-aluminum-light uppercase tracking-[0.2em] font-bold">
         {label}
       </span>
       <div className="relative w-[96px] h-[96px]" ref={knobRef}>
@@ -172,7 +172,7 @@ export default function Knob({
           </div>
         </div>
       </div>
-      <span className="text-[11px] text-[#1a1a1a] font-mono tracking-wider font-bold" style={{ textShadow: "0 1px 0 rgba(255,255,255,0.3)" }}>
+      <span className="text-[11px] text-dw-gold font-mono tracking-wider">
         {valueDisplay}
       </span>
     </div>
