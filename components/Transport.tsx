@@ -21,8 +21,9 @@ export default function Transport() {
 
   const off = !sourceBuffer;
 
-  const handleLoad = useCallback(() => {
-    getAudioContext(); // Create + resume AudioContext on user gesture
+  const handleLoad = useCallback(async () => {
+    const ctx = getAudioContext();
+    await ctx.resume();
     if (sourceBuffer) {
       eject();
     }
@@ -30,7 +31,9 @@ export default function Transport() {
   }, [sourceBuffer, eject]);
 
   const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const ctx = getAudioContext();
+      await ctx.resume();
       const file = e.target.files?.[0];
       if (file) loadFile(file);
       if (inputRef.current) inputRef.current.value = "";
@@ -68,7 +71,7 @@ export default function Transport() {
           </div>
         </div>
         <button
-          onClick={() => { getAudioContext(); if (isPlaying) { stop(); } else { play(); } }}
+          onClick={async () => { const ctx = getAudioContext(); await ctx.resume(); if (isPlaying) { stop(); } else { play(); } }}
           disabled={!isPlaying && off}
           className={btnBase}
         >
