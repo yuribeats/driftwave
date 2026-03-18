@@ -57,7 +57,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
             <div className="crt flex flex-col" style={{ height: "180px" }}>
               <div className="px-2 py-1 flex justify-between text-[10px] border-b z-10" style={{ color: "var(--crt-bright)", borderColor: "var(--crt-grid)" }}>
                 <span>SYS STATUS</span>
-                <span>{isPlaying ? "PLAYING" : "READY"}</span>
+                {isPlaying && <span>PLAYING</span>}
               </div>
               <div className="crt-grid flex-1 p-2 text-[12px] leading-[1.8] z-10" style={{ color: "var(--crt-bright)" }}>
                 <div><span style={{ color: "var(--crt-dim)", display: "inline-block", width: "70px" }}>SPEED:</span> {rate.toFixed(2)}X</div>
