@@ -1,7 +1,6 @@
 "use client";
 
 import SpectrumAnalyzer from "../../components/SpectrumAnalyzer";
-import Controls from "../../components/Controls";
 import Transport from "../../components/Transport";
 import ProgressBar from "../../components/ProgressBar";
 import Playlist from "../../components/Playlist";
@@ -54,24 +53,45 @@ export default function Home() {
             <SpectrumAnalyzer />
           </div>
 
-          {/* Control deck - 3 columns */}
-          <div className="grid grid-cols-3 gap-5">
-            {/* Time Engine */}
-            <div className="zone-engraved">
-              <Controls />
-              <div className="label" style={{ marginTop: "16px", fontSize: "14px" }}>TIME ENGINE</div>
-            </div>
-
+          {/* Control deck - 2 columns */}
+          <div className="grid grid-cols-2 gap-5">
             {/* Transport */}
             <div className="zone-inset">
               <Transport />
               <div className="label" style={{ fontSize: "14px", color: "var(--text-dark)" }}>TRANSPORT</div>
             </div>
 
-            {/* Reverb Unit */}
+            {/* Effects */}
             <div className="zone-engraved relative">
-              <div className="label" style={{ position: "absolute", top: "10px", width: "calc(100% - 40px)", fontSize: "14px" }}>REVERB UNIT</div>
+              <div className="label" style={{ position: "absolute", top: "10px", width: "calc(100% - 40px)", fontSize: "14px" }}>EFFECTS</div>
               <div className="flex justify-around pt-6">
+                {/* Speed slider */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative h-[120px] w-[32px] flex justify-center">
+                    <div className="slider-track h-full" />
+                    <input
+                      type="range"
+                      min="-0.5"
+                      max="0.5"
+                      step="0.01"
+                      value={params.speed}
+                      onChange={(e) => setParam("speed", parseFloat(e.target.value))}
+                      className="absolute w-[120px] h-[32px]"
+                      style={{
+                        transform: "rotate(-90deg)",
+                        transformOrigin: "center",
+                        top: "44px",
+                        left: "-44px",
+                        WebkitAppearance: "none",
+                        appearance: "none",
+                        background: "transparent",
+                      }}
+                    />
+                  </div>
+                  <div className="label">SPEED</div>
+                  <span className="text-[10px]" style={{ color: "var(--crt-bright)", textShadow: "0 0 6px var(--crt-dim)" }}>{rate.toFixed(2)}X</span>
+                </div>
+
                 {/* Reverb slider */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="relative h-[120px] w-[32px] flex justify-center">
@@ -95,7 +115,7 @@ export default function Home() {
                       }}
                     />
                   </div>
-                  <div className="label">DECAY</div>
+                  <div className="label">REVERB</div>
                   <span className="text-[10px]" style={{ color: "var(--crt-bright)", textShadow: "0 0 6px var(--crt-dim)" }}>{reverbPct}%</span>
                 </div>
 
