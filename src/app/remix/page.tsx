@@ -65,17 +65,29 @@ function RotaryKnob({ angle, min, max, value, onChange, label, display }: {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         style={{
-          width: 36, height: 36, borderRadius: "50%",
+          width: 40, height: 40, borderRadius: "50%",
           background: "linear-gradient(145deg, #3a3a3a, #252525)",
           boxShadow: "2px 2px 6px rgba(0,0,0,0.6), -1px -1px 3px rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.06)",
           position: "relative", userSelect: "none", touchAction: "none",
         }}
       >
+        {/* Noon reference tick */}
         <div style={{
-          position: "absolute", top: 3, left: "50%", width: 2, height: 12,
-          background: "var(--accent-gold)", marginLeft: -1, borderRadius: 1,
-          transformOrigin: "center 15px",
+          position: "absolute", top: 2, left: "50%", width: 2, height: 6,
+          background: "#666", marginLeft: -1, borderRadius: 1,
+        }} />
+        {/* Pointer */}
+        <div style={{
+          position: "absolute", top: 4, left: "50%", width: 3, height: 14,
+          background: "var(--accent-gold)", marginLeft: -1.5, borderRadius: 1.5,
+          transformOrigin: "center 16px",
           transform: `rotate(${angle}deg)`,
+          boxShadow: "0 0 4px rgba(200,169,110,0.6)",
+        }} />
+        {/* Center dot */}
+        <div style={{
+          position: "absolute", top: "50%", left: "50%", width: 6, height: 6,
+          background: "#555", borderRadius: "50%", marginTop: -3, marginLeft: -3,
         }} />
       </div>
       <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
@@ -114,6 +126,7 @@ function Deck({ id }: { id: DeckId }) {
   const [reverbDetail, setReverbDetail] = useState(false);
   const [toneDetail, setToneDetail] = useState(false);
   const [satDetail, setSatDetail] = useState(false);
+  const [knobRange, setKnobRange] = useState(0.5); // ±seconds window for IN/OUT knobs
 
   const rate = 1.0 + deck.params.speed;
   const pitchSemitones = deck.params.pitch ?? 0;
@@ -274,29 +287,40 @@ function Deck({ id }: { id: DeckId }) {
         onScrub={(pos) => scrub(id, pos)}
       />
 
-      {/* Loop IN/OUT rotary knobs — ±0.5s window centered on current point */}
+      {/* Loop IN/OUT rotary knobs */}
       {deck.sourceBuffer && (deck.regionStart > 0 || deck.regionEnd > 0) && (() => {
         const dur = deck.sourceBuffer!.duration;
         const inVal = deck.regionStart;
         const outVal = deck.regionEnd > 0 ? deck.regionEnd : dur;
-        const win = 0.5;
-        const stp = 0.0001;
-        const inMin = Math.max(0, inVal - win);
-        const inMax = Math.min(outVal - stp, inVal + win);
-        const outMin = Math.max(inVal + stp, outVal - win);
-        const outMax = Math.min(dur, outVal + win);
+        const stp = 0.0001 * (knobRange / 0.5); // scale step with range
+        const inMin = Math.max(0, inVal - knobRange);
+        const inMax = Math.min(outVal - stp, inVal + knobRange);
+        const outMin = Math.max(inVal + stp, outVal - knobRange);
+        const outMax = Math.min(dur, outVal + knobRange);
         const valToAngle = (v: number, mn: number, mx: number) => {
           if (mx <= mn) return 0;
           return -135 + ((v - mn) / (mx - mn)) * 270;
         };
         return (
           <div className="zone-engraved">
-            <div className="flex items-center gap-6 justify-center">
+            <div className="flex items-center gap-5 justify-center">
               <RotaryKnob
                 angle={valToAngle(inVal, inMin, inMax)} min={inMin} max={inMax} value={inVal}
                 onChange={(v) => { if (v < outVal) setRegion(id, v, deck.regionEnd); }}
                 label="IN" display={inVal.toFixed(4) + "S"}
               />
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="label" style={{ fontSize: "7px", margin: 0 }}>RANGE</div>
+                <input
+                  type="range" min={0.05} max={5} step={0.05} value={knobRange}
+                  onChange={(e) => setKnobRange(parseFloat(e.target.value))}
+                  className="w-[50px]"
+                  style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "16px" }}
+                />
+                <span className="text-[6px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+                  {knobRange >= 1 ? knobRange.toFixed(1) + "S" : (knobRange * 1000).toFixed(0) + "MS"}
+                </span>
+              </div>
               <RotaryKnob
                 angle={valToAngle(outVal, outMin, outMax)} min={outMin} max={outMax} value={outVal}
                 onChange={(v) => { if (v > inVal) setRegion(id, deck.regionStart, v); }}

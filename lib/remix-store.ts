@@ -703,8 +703,8 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const rEnd = deck.regionEnd > 0 ? deck.regionEnd : deck.sourceBuffer.duration;
     const loopLength = rEnd - deck.regionStart;
     if (loopLength <= 0) return;
-    // 4 bars: BPM = 240 / loopLength
-    const bpm = Math.round(240 / loopLength);
+    // 4 bars: BPM = 240 / loopLength (no rounding — precision matters for lock)
+    const bpm = 240 / loopLength;
     set((s) => ({ [dk]: { ...s[dk], calculatedBPM: bpm } }));
   },
 
@@ -957,14 +957,19 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       return;
     }
 
+    if (!deckA.sourceBuffer || !deckB.sourceBuffer) return;
     if (!deckA.calculatedBPM || !deckB.calculatedBPM) return;
 
-    // Deck A is alpha — match B's BPM to A's current BPM
-    const rateA = 1.0 + deckA.params.speed;
-    const targetBPM = deckA.calculatedBPM * rateA;
+    // Use raw loop lengths for perfect precision (avoid BPM rounding)
+    const loopA = (deckA.regionEnd > 0 ? deckA.regionEnd : deckA.sourceBuffer.duration) - deckA.regionStart;
+    const loopB = (deckB.regionEnd > 0 ? deckB.regionEnd : deckB.sourceBuffer.duration) - deckB.regionStart;
+    if (loopA <= 0 || loopB <= 0) return;
 
-    const newRate = targetBPM / deckB.calculatedBPM;
-    const newSpeed = Math.max(-0.5, Math.min(0.5, newRate - 1.0));
+    // Target: make real-time loop durations equal
+    // loopA / rateA = loopB / rateB  →  rateB = (loopB / loopA) * rateA
+    const rateA = 1.0 + deckA.params.speed;
+    const newRateB = (loopB / loopA) * rateA;
+    const newSpeed = Math.max(-0.5, Math.min(0.5, newRateB - 1.0));
     get().setParam("B", "speed", newSpeed);
     if (deckB.params.pitchSpeedLinked ?? true) {
       get().setParam("B", "pitch", 12 * Math.log2(1.0 + newSpeed));
