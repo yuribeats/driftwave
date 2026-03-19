@@ -679,6 +679,13 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   setRegion: (id, start, end) => {
     const dk = deckKey(id);
     set((s) => ({ [dk]: { ...s[dk], regionStart: start, regionEnd: end, pauseOffset: start } }));
+
+    // Update live source node loop boundaries
+    const deck = getDeck(get(), id);
+    if (deck.nodes?.source && deck.isPlaying) {
+      deck.nodes.source.loopStart = start;
+      deck.nodes.source.loopEnd = end > 0 ? end : (deck.sourceBuffer?.duration ?? 0);
+    }
   },
 
   seek: async (id, position) => {
