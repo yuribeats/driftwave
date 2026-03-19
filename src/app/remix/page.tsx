@@ -1169,7 +1169,11 @@ export default function RemixPage() {
   const bpmLocked = useRemixStore((s) => s.bpmLocked);
   const download = useRemixStore((s) => s.download);
   const isExporting = useRemixStore((s) => s.isExporting);
+  const recordArmed = useRemixStore((s) => s.recordArmed);
+  const isRecording = useRemixStore((s) => s.isRecording);
+  const armRecord = useRemixStore((s) => s.armRecord);
   const [manualOpen, setManualOpen] = useState(false);
+  const [seqOpen, setSeqOpen] = useState(false);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6">
@@ -1188,6 +1192,13 @@ export default function RemixPage() {
             </span>
             <div className="ml-auto flex items-center gap-2">
               <button
+                onClick={() => setSeqOpen(!seqOpen)}
+                className={detailBtnClass(seqOpen)}
+                style={detailBtnStyle}
+              >
+                SEQ
+              </button>
+              <button
                 onClick={() => download()}
                 disabled={isExporting || (!deckA.sourceBuffer && !deckB.sourceBuffer)}
                 className={detailBtnClass(isExporting)}
@@ -1205,6 +1216,13 @@ export default function RemixPage() {
             </div>
           </div>
 
+          {/* Sequencer — above decks when open */}
+          {seqOpen && (
+            <div className="zone-inset boot-stagger boot-delay-1">
+              <Sequencer />
+            </div>
+          )}
+
           {/* Two decks side by side */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 boot-stagger boot-delay-2">
             <div className="zone-inset">
@@ -1215,8 +1233,35 @@ export default function RemixPage() {
             </div>
           </div>
 
-          {/* Sync start + Lock BPM */}
+          {/* Sync start + Lock BPM + Record */}
           <div className="flex justify-center gap-6 boot-stagger boot-delay-3">
+            <div className="flex flex-col items-center">
+              <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>REC</span>
+              <button
+                onClick={() => armRecord()}
+                disabled={isRecording}
+                className="rocker-switch"
+                style={{
+                  width: "60px", height: "44px",
+                  boxShadow: recordArmed ? "inset 0 0 8px rgba(200,40,40,0.4)" : isRecording ? "inset 0 0 12px rgba(200,40,40,0.6)" : undefined,
+                }}
+              >
+                <div
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{
+                    background: isRecording ? "var(--led-red-on, #c82828)" : recordArmed ? "var(--led-red-on, #c82828)" : "#555",
+                    animation: isRecording ? "pulse 1s infinite" : undefined,
+                  }}
+                />
+              </button>
+              <span className="text-[7px] mt-0.5" style={{
+                fontFamily: "var(--font-tech)",
+                color: isRecording ? "var(--led-red-on, #c82828)" : recordArmed ? "var(--led-red-on, #c82828)" : "var(--text-dark)",
+                opacity: isRecording || recordArmed ? 1 : 0.4,
+              }}>
+                {isRecording ? "RECORDING" : recordArmed ? "ARMED" : "OFF"}
+              </span>
+            </div>
             <div className="flex flex-col items-center">
               <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>SYNC START</span>
               <button
@@ -1272,11 +1317,6 @@ export default function RemixPage() {
               <span className="label" style={{ margin: 0, fontSize: "10px", minWidth: "20px" }}>B</span>
             </div>
             <div className="label" style={{ fontSize: "12px", marginTop: "4px" }}>CROSSFADER</div>
-          </div>
-
-          {/* Sequencer */}
-          <div className="zone-inset boot-stagger boot-delay-3">
-            <Sequencer />
           </div>
 
           {/* Master output bus */}

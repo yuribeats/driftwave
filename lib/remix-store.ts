@@ -172,6 +172,8 @@ interface RemixStore {
 
   bpmLocked: boolean;
   isExporting: boolean;
+  recordArmed: boolean;
+  isRecording: boolean;
 
   // Sequencer
   sequencerOpen: boolean;
@@ -206,6 +208,8 @@ interface RemixStore {
   stopSequencer: () => void;
   lockBPM: () => void;
   download: () => Promise<void>;
+  armRecord: () => void;
+  stopRecording: () => void;
 }
 
 /* ─── Shared output bus: merger → EQ → compressor → makeup → limiter → destination ─── */
@@ -216,6 +220,11 @@ let masterHigh: BiquadFilterNode | null = null;
 let masterComp: DynamicsCompressorNode | null = null;
 let masterMakeup: GainNode | null = null;
 let masterLimiter: DynamicsCompressorNode | null = null;
+let masterStreamDest: MediaStreamAudioDestinationNode | null = null;
+
+/* ─── Live recording state ─── */
+let liveRecorder: MediaRecorder | null = null;
+let recordedChunks: Blob[] = [];
 
 function getSharedMerger(): GainNode {
   const ctx = getAudioContext();
@@ -262,6 +271,9 @@ function getSharedMerger(): GainNode {
     masterComp.connect(masterMakeup);
     masterMakeup.connect(masterLimiter);
     masterLimiter.connect(ctx.destination);
+
+    masterStreamDest = ctx.createMediaStreamDestination();
+    masterLimiter.connect(masterStreamDest);
   }
   return sharedMerger;
 }
@@ -438,6 +450,8 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   masterBus: { ...defaultMasterBus },
   bpmLocked: false,
   isExporting: false,
+  recordArmed: false,
+  isRecording: false,
   sequencerOpen: false,
   sequencerTracksA: [],
   sequencerTracksB: [],
@@ -541,6 +555,11 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     if (deck.nodes) {
       try { deck.nodes.source.onended = null; } catch { /* ok */ }
       try { deck.nodes.source.stop(); } catch { /* ok */ }
+    }
+
+    // Stop recording when deck A stops
+    if (id === "A" && get().isRecording) {
+      get().stopRecording();
     }
   },
 
@@ -706,7 +725,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   },
 
   syncPlay: async () => {
-    const { deckA, deckB } = get();
+    const { deckA, deckB, recordArmed } = get();
     const hasA = !!deckA.sourceBuffer;
     const hasB = !!deckB.sourceBuffer;
     if (!hasA && !hasB) return;
@@ -717,6 +736,18 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
     const ctx = getAudioContext();
     if (ctx.state === "suspended") await ctx.resume();
+
+    // Start recording if armed
+    if (recordArmed && masterStreamDest) {
+      getSharedMerger(); // ensure bus is built
+      recordedChunks = [];
+      liveRecorder = new MediaRecorder(masterStreamDest.stream);
+      liveRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+      liveRecorder.start();
+      set({ isRecording: true, recordArmed: false });
+    }
 
     // Start both — play() is async but the actual source.start() inside
     // happens on the same AudioContext so they'll be sample-aligned
@@ -1160,5 +1191,77 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     } finally {
       set({ isExporting: false });
     }
+  },
+
+  armRecord: () => {
+    const { recordArmed, isRecording } = get();
+    if (isRecording) return; // can't arm while recording
+    set({ recordArmed: !recordArmed });
+  },
+
+  stopRecording: () => {
+    if (!liveRecorder || liveRecorder.state === "inactive") {
+      set({ isRecording: false });
+      return;
+    }
+
+    liveRecorder.onstop = async () => {
+      const blob = new Blob(recordedChunks, { type: recordedChunks[0]?.type || "audio/webm" });
+      recordedChunks = [];
+      liveRecorder = null;
+
+      // Decode the recorded blob to AudioBuffer, then re-encode as WAV
+      try {
+        const arrayBuf = await blob.arrayBuffer();
+        const ctx = getAudioContext();
+        const decoded = await ctx.decodeAudioData(arrayBuf);
+
+        // Normalize
+        let peak = 0;
+        for (let c = 0; c < decoded.numberOfChannels; c++) {
+          const ch = decoded.getChannelData(c);
+          for (let i = 0; i < ch.length; i++) {
+            const abs = Math.abs(ch[i]);
+            if (abs > peak) peak = abs;
+          }
+        }
+        if (peak > 1) {
+          const scale = 0.99 / peak;
+          for (let c = 0; c < decoded.numberOfChannels; c++) {
+            const ch = decoded.getChannelData(c);
+            for (let i = 0; i < ch.length; i++) ch[i] *= scale;
+          }
+        }
+
+        const wavBlob = encodeWAV(decoded);
+        const { deckA, deckB } = get();
+        const nameA = deckA.sourceFilename || "deck-a";
+        const nameB = deckB.sourceFilename || "deck-b";
+        const filename = `${nameA}-x-${nameB}-live.wav`;
+
+        const url = URL.createObjectURL(wavBlob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+      } catch {
+        // Fallback: download raw webm if WAV conversion fails
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "live-recording.webm";
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+      }
+
+      set({ isRecording: false });
+    };
+
+    liveRecorder.stop();
   },
 }));

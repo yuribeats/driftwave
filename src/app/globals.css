@@ -76,6 +76,10 @@ body::after {
   0%, 100% { box-shadow: 0 0 8px var(--led-green-on); }
   50% { box-shadow: 0 0 14px var(--led-green-on), 0 0 22px rgba(117,204,70,0.15); }
 }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
 
 /* Boot stagger classes */
 .boot-stagger {
