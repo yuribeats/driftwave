@@ -67,7 +67,11 @@ async function tryYtProxy(url: string): Promise<NextResponse | null> {
     body: JSON.stringify({ url }),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "no body");
+    console.error(`yt-proxy returned ${res.status}: ${errText}`);
+    return null;
+  }
 
   const buffer = await res.arrayBuffer();
   const title = res.headers.get("X-Audio-Title") || "youtube-audio";
