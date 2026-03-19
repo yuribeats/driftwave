@@ -218,58 +218,96 @@ function Deck({ id }: { id: DeckId }) {
         onScrub={(pos) => scrub(id, pos)}
       />
 
-      {/* Loop IN/OUT fine-tune — ±0.5s window centered on current point */}
+      {/* Loop IN/OUT rotary knobs — ±0.5s window centered on current point */}
       {deck.sourceBuffer && (deck.regionStart > 0 || deck.regionEnd > 0) && (() => {
         const dur = deck.sourceBuffer!.duration;
         const inVal = deck.regionStart;
         const outVal = deck.regionEnd > 0 ? deck.regionEnd : dur;
-        const window = 0.5;
+        const win = 0.5;
         const step = 0.0001;
-        const inMin = Math.max(0, inVal - window);
-        const inMax = Math.min(outVal - step, inVal + window);
-        const outMin = Math.max(inVal + step, outVal - window);
-        const outMax = Math.min(dur, outVal + window);
+        const inMin = Math.max(0, inVal - win);
+        const inMax = Math.min(outVal - step, inVal + win);
+        const outMin = Math.max(inVal + step, outVal - win);
+        const outMax = Math.min(dur, outVal + win);
+        // Map value to rotation: center = 0° (pointing up), range = -135° to +135°
+        const valToAngle = (v: number, mn: number, mx: number) => {
+          if (mx <= mn) return 0;
+          return -135 + ((v - mn) / (mx - mn)) * 270;
+        };
+        const inAngle = valToAngle(inVal, inMin, inMax);
+        const outAngle = valToAngle(outVal, outMin, outMax);
+
+        const Knob = ({ angle, min, max, value, onChange, label, display }: {
+          angle: number; min: number; max: number; value: number;
+          onChange: (v: number) => void; label: string; display: string;
+        }) => {
+          const knobRef = useRef<HTMLDivElement>(null);
+          const dragging = useRef(false);
+          const startY = useRef(0);
+          const startVal = useRef(0);
+
+          const onPointerDown = useCallback((e: React.PointerEvent) => {
+            dragging.current = true;
+            startY.current = e.clientY;
+            startVal.current = value;
+            (e.target as HTMLElement).setPointerCapture(e.pointerId);
+          }, [value]);
+
+          const onPointerMove = useCallback((e: React.PointerEvent) => {
+            if (!dragging.current) return;
+            const dy = startY.current - e.clientY; // up = positive
+            const range = max - min;
+            const sensitivity = range / 200; // 200px drag = full range
+            const newVal = Math.max(min, Math.min(max, startVal.current + dy * sensitivity));
+            onChange(newVal);
+          }, [min, max, onChange]);
+
+          const onPointerUp = useCallback(() => {
+            dragging.current = false;
+          }, []);
+
+          return (
+            <div className="flex flex-col items-center gap-1">
+              <div className="label" style={{ fontSize: "8px", margin: 0 }}>{label}</div>
+              <div
+                ref={knobRef}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                style={{
+                  width: 36, height: 36, borderRadius: "50%",
+                  background: "linear-gradient(145deg, #3a3a3a, #252525)",
+                  boxShadow: "2px 2px 6px rgba(0,0,0,0.6), -1px -1px 3px rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.06)",
+                  position: "relative", userSelect: "none", touchAction: "none",
+                }}
+              >
+                <div style={{
+                  position: "absolute", top: 3, left: "50%", width: 2, height: 12,
+                  background: "var(--accent-gold)", marginLeft: -1, borderRadius: 1,
+                  transformOrigin: "center 15px",
+                  transform: `rotate(${angle}deg)`,
+                }} />
+              </div>
+              <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+                {display}
+              </span>
+            </div>
+          );
+        };
+
         return (
           <div className="zone-engraved">
-            <div className="flex items-center gap-4 justify-center">
-              <div className="flex flex-col items-center gap-0.5">
-                <div className="label" style={{ fontSize: "8px", margin: 0 }}>IN</div>
-                <input
-                  type="range"
-                  min={inMin}
-                  max={inMax}
-                  step={step}
-                  value={inVal}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (v < outVal) setRegion(id, v, deck.regionEnd);
-                  }}
-                  className="w-[120px]"
-                  style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "20px" }}
-                />
-                <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                  {inVal.toFixed(4)}S
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-0.5">
-                <div className="label" style={{ fontSize: "8px", margin: 0 }}>OUT</div>
-                <input
-                  type="range"
-                  min={outMin}
-                  max={outMax}
-                  step={step}
-                  value={outVal}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (v > inVal) setRegion(id, deck.regionStart, v);
-                  }}
-                  className="w-[120px]"
-                  style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "20px" }}
-                />
-                <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                  {outVal.toFixed(4)}S
-                </span>
-              </div>
+            <div className="flex items-center gap-6 justify-center">
+              <Knob
+                angle={inAngle} min={inMin} max={inMax} value={inVal}
+                onChange={(v) => { if (v < outVal) setRegion(id, v, deck.regionEnd); }}
+                label="IN" display={inVal.toFixed(4) + "S"}
+              />
+              <Knob
+                angle={outAngle} min={outMin} max={outMax} value={outVal}
+                onChange={(v) => { if (v > inVal) setRegion(id, deck.regionStart, v); }}
+                label="OUT" display={outVal.toFixed(4) + "S"}
+              />
             </div>
           </div>
         );
@@ -1043,6 +1081,7 @@ export default function RemixPage() {
   const deckB = useRemixStore((s) => s.deckB);
   const sequencerOpen = useRemixStore((s) => s.sequencerOpen);
   const setSequencerOpen = useRemixStore((s) => s.setSequencerOpen);
+  const lockBPM = useRemixStore((s) => s.lockBPM);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6">
@@ -1087,8 +1126,8 @@ export default function RemixPage() {
             </div>
           </div>
 
-          {/* Sync start */}
-          <div className="flex justify-center boot-stagger boot-delay-3">
+          {/* Sync start + Lock BPM */}
+          <div className="flex justify-center gap-6 boot-stagger boot-delay-3">
             <div className="flex flex-col items-center">
               <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>SYNC START</span>
               <button
@@ -1096,6 +1135,17 @@ export default function RemixPage() {
                 disabled={!deckA.sourceBuffer && !deckB.sourceBuffer}
                 className="rocker-switch"
                 style={{ width: "60px", height: "44px" }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
+              </button>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>LOCK BPM</span>
+              <button
+                onClick={() => lockBPM()}
+                disabled={!deckA.calculatedBPM || !deckB.calculatedBPM}
+                className="rocker-switch"
+                style={{ width: "60px", height: "44px", opacity: (!deckA.calculatedBPM || !deckB.calculatedBPM) ? 0.4 : 1 }}
               >
                 <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
               </button>

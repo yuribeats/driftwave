@@ -197,6 +197,7 @@ interface RemixStore {
   removeSequencerSlot: (deck: DeckId, slotIndex: number) => void;
   playSequencer: () => Promise<void>;
   stopSequencer: () => void;
+  lockBPM: () => void;
 }
 
 /* ─── Shared output bus: merger → EQ → compressor → makeup → limiter → destination ─── */
@@ -913,5 +914,31 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     seqSourcesA = [];
     seqSourcesB = [];
     set({ sequencerPlaying: false });
+  },
+
+  lockBPM: () => {
+    const { deckA, deckB } = get();
+    if (!deckA.calculatedBPM || !deckB.calculatedBPM) return;
+
+    const rateA = 1.0 + deckA.params.speed;
+    const rateB = 1.0 + deckB.params.speed;
+    const bpmA = deckA.calculatedBPM * rateA;
+    const bpmB = deckB.calculatedBPM * rateB;
+
+    // Target = average of both current BPMs
+    const target = (bpmA + bpmB) / 2;
+
+    // Adjust each deck's speed so calculatedBPM * newRate = target
+    const adjustDeck = (id: DeckId, rawBPM: number, linked: boolean) => {
+      const newRate = target / rawBPM;
+      const newSpeed = Math.max(-0.5, Math.min(0.5, newRate - 1.0));
+      get().setParam(id, "speed", newSpeed);
+      if (linked) {
+        get().setParam(id, "pitch", 12 * Math.log2(1.0 + newSpeed));
+      }
+    };
+
+    adjustDeck("A", deckA.calculatedBPM, deckA.params.pitchSpeedLinked ?? true);
+    adjustDeck("B", deckB.calculatedBPM, deckB.params.pitchSpeedLinked ?? true);
   },
 }));
