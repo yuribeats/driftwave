@@ -3,6 +3,8 @@ import {
   SimpleParams,
   SIMPLE_DEFAULTS,
   expandParams,
+  renderOffline,
+  encodeWAV,
 } from "@yuribeats/audio-utils";
 import { decodeFile } from "./file-decoder";
 import { getAudioContext, ensurePitchWorklet, isPitchWorkletReady } from "./audio-context";
@@ -169,6 +171,7 @@ interface RemixStore {
   masterBus: MasterBusParams;
 
   bpmLocked: boolean;
+  isExporting: boolean;
 
   // Sequencer
   sequencerOpen: boolean;
@@ -200,6 +203,7 @@ interface RemixStore {
   playSequencer: () => Promise<void>;
   stopSequencer: () => void;
   lockBPM: () => void;
+  download: () => Promise<void>;
 }
 
 /* ─── Shared output bus: merger → EQ → compressor → makeup → limiter → destination ─── */
@@ -260,6 +264,19 @@ function getSharedMerger(): GainNode {
   return sharedMerger;
 }
 
+/* ─── Extract a region from an AudioBuffer as raw channel data ─── */
+function extractRegion(buffer: AudioBuffer, start: number, end: number) {
+  const sr = buffer.sampleRate;
+  const s0 = Math.floor(start * sr);
+  const s1 = Math.ceil(end * sr);
+  const length = s1 - s0;
+  const channelData: Float32Array[] = [];
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    channelData.push(buffer.getChannelData(c).slice(s0, s1));
+  }
+  return { channelData, sampleRate: sr, numberOfChannels: buffer.numberOfChannels, length };
+}
+
 /* ─── Build audio graph for a single deck ─── */
 function buildDeckGraph(
   ctx: AudioContext,
@@ -269,7 +286,8 @@ function buildDeckGraph(
   duration: number | undefined,
   volume: number,
   crossfaderGain: number,
-  onEnded: () => void
+  onEnded: () => void,
+  loopRegion?: { loopStart: number; loopEnd: number }
 ): DeckNodes {
   const expanded = expandParams(params);
 
@@ -376,7 +394,12 @@ function buildDeckGraph(
   deckGain.connect(getSharedMerger());
 
   source.onended = onEnded;
-  if (duration && duration > 0) {
+  if (loopRegion) {
+    source.loop = true;
+    source.loopStart = loopRegion.loopStart;
+    source.loopEnd = loopRegion.loopEnd;
+    source.start(0, offset);
+  } else if (duration && duration > 0) {
     source.start(0, offset, duration);
   } else {
     source.start(0, offset);
@@ -412,6 +435,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   crossfader: 0,
   masterBus: { ...defaultMasterBus },
   bpmLocked: false,
+  isExporting: false,
   sequencerOpen: false,
   sequencerTracksA: [],
   sequencerTracksB: [],
@@ -479,23 +503,18 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       playBuffer,
       freshDeck.params,
       playOffset,
-      playDuration,
+      hasRegion ? undefined : playDuration,
       freshDeck.volume,
       cfGain,
       () => {
-        // Ignore if this source is stale (stop/pause/new play already happened)
+        // Only fires for non-looping playback (native loop never triggers onEnded)
         if (deckGeneration[id] !== gen) return;
         if (!getDeck(get(), id).isPlaying) return;
-
-        if (hasRegion) {
-          set((s) => ({ [key]: { ...s[key], pauseOffset: rStart, nodes: null } }));
-          get().play(id);
-        } else {
-          set((s) => ({
-            [key]: { ...s[key], isPlaying: false, nodes: null, pauseOffset: rStart },
-          }));
-        }
-      }
+        set((s) => ({
+          [key]: { ...s[key], isPlaying: false, nodes: null, pauseOffset: rStart },
+        }));
+      },
+      hasRegion ? { loopStart: rStart, loopEnd: rEnd } : undefined
     );
 
     set((s) => ({
@@ -976,5 +995,145 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     }
 
     set({ bpmLocked: true });
+  },
+
+  download: async () => {
+    const { deckA, deckB, crossfader, masterBus } = get();
+    const hasA = !!deckA.sourceBuffer;
+    const hasB = !!deckB.sourceBuffer;
+    if (!hasA && !hasB) return;
+
+    set({ isExporting: true });
+
+    try {
+      const cfGains = getCrossfaderGains(crossfader);
+      const renders: { data: Float32Array[]; gain: number; sr: number; nch: number }[] = [];
+
+      for (const [deck, cfGain] of [
+        [deckA, cfGains.a],
+        [deckB, cfGains.b],
+      ] as [DeckState, number][]) {
+        if (!deck.sourceBuffer) continue;
+
+        const buf = (deck.activeStem && deck.stemBuffers?.[deck.activeStem]) || deck.sourceBuffer;
+        const rStart = deck.regionStart;
+        const rEnd = deck.regionEnd > 0 ? deck.regionEnd : buf.duration;
+        const region = extractRegion(buf, rStart, rEnd);
+        const expanded = expandParams(deck.params);
+
+        const result = await renderOffline({
+          ...region,
+          params: expanded,
+        });
+
+        renders.push({
+          data: result.channelData,
+          gain: deck.volume * cfGain,
+          sr: result.sampleRate,
+          nch: result.numberOfChannels,
+        });
+      }
+
+      if (renders.length === 0) {
+        set({ isExporting: false });
+        return;
+      }
+
+      const sr = renders[0].sr;
+      const nch = Math.max(...renders.map((r) => r.nch));
+      const maxLen = Math.max(...renders.map((r) => r.data[0].length));
+
+      // Mix all renders together
+      const mixed: Float32Array[] = [];
+      for (let c = 0; c < nch; c++) mixed.push(new Float32Array(maxLen));
+      for (const r of renders) {
+        for (let c = 0; c < nch; c++) {
+          const ch = c < r.data.length ? r.data[c] : r.data[0];
+          for (let i = 0; i < ch.length; i++) {
+            mixed[c][i] += ch[i] * r.gain;
+          }
+        }
+      }
+
+      // Apply master bus (EQ → compressor → makeup → limiter) via OfflineAudioContext
+      const offCtx = new OfflineAudioContext(nch, maxLen, sr);
+      const mixBuf = offCtx.createBuffer(nch, maxLen, sr);
+      for (let c = 0; c < nch; c++) mixBuf.getChannelData(c).set(mixed[c]);
+
+      const src = offCtx.createBufferSource();
+      src.buffer = mixBuf;
+
+      const mLow = offCtx.createBiquadFilter();
+      mLow.type = "lowshelf"; mLow.frequency.value = 200; mLow.gain.value = masterBus.eqLow;
+      const mMid = offCtx.createBiquadFilter();
+      mMid.type = "peaking"; mMid.frequency.value = 2500; mMid.Q.value = 1.0; mMid.gain.value = masterBus.eqMid;
+      const mHigh = offCtx.createBiquadFilter();
+      mHigh.type = "highshelf"; mHigh.frequency.value = 8000; mHigh.gain.value = masterBus.eqHigh;
+
+      const comp = expandCompressor(masterBus);
+      const mComp = offCtx.createDynamicsCompressor();
+      mComp.threshold.value = comp.threshold;
+      mComp.ratio.value = comp.ratio;
+      mComp.attack.value = comp.attack;
+      mComp.release.value = comp.release;
+      mComp.knee.value = comp.knee;
+
+      const mMakeup = offCtx.createGain();
+      mMakeup.gain.value = Math.pow(10, comp.makeup / 20);
+
+      const lim = expandLimiter(masterBus);
+      const mLim = offCtx.createDynamicsCompressor();
+      mLim.threshold.value = lim.threshold;
+      mLim.ratio.value = lim.ratio;
+      mLim.attack.value = lim.attack;
+      mLim.release.value = lim.release;
+      mLim.knee.value = lim.knee;
+
+      src.connect(mLow);
+      mLow.connect(mMid);
+      mMid.connect(mHigh);
+      mHigh.connect(mComp);
+      mComp.connect(mMakeup);
+      mMakeup.connect(mLim);
+      mLim.connect(offCtx.destination);
+
+      src.start(0);
+      const rendered = await offCtx.startRendering();
+
+      // Normalize peaks
+      let peak = 0;
+      for (let c = 0; c < rendered.numberOfChannels; c++) {
+        const ch = rendered.getChannelData(c);
+        for (let i = 0; i < ch.length; i++) {
+          const abs = Math.abs(ch[i]);
+          if (abs > peak) peak = abs;
+        }
+      }
+      if (peak > 1) {
+        const scale = 0.99 / peak;
+        for (let c = 0; c < rendered.numberOfChannels; c++) {
+          const ch = rendered.getChannelData(c);
+          for (let i = 0; i < ch.length; i++) ch[i] *= scale;
+        }
+      }
+
+      const blob = encodeWAV(rendered);
+      const nameA = deckA.sourceFilename || "deck-a";
+      const nameB = deckB.sourceFilename || "deck-b";
+      const filename = hasA && hasB
+        ? `${nameA}-x-${nameB}-remix.wav`
+        : `${hasA ? nameA : nameB}-remix.wav`;
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } finally {
+      set({ isExporting: false });
+    }
   },
 }));

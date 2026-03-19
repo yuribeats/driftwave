@@ -1119,9 +1119,10 @@ export default function RemixPage() {
   const deckA = useRemixStore((s) => s.deckA);
   const deckB = useRemixStore((s) => s.deckB);
   const sequencerOpen = useRemixStore((s) => s.sequencerOpen);
-  const setSequencerOpen = useRemixStore((s) => s.setSequencerOpen);
   const lockBPM = useRemixStore((s) => s.lockBPM);
   const bpmLocked = useRemixStore((s) => s.bpmLocked);
+  const download = useRemixStore((s) => s.download);
+  const isExporting = useRemixStore((s) => s.isExporting);
   const [manualOpen, setManualOpen] = useState(false);
 
   return (
@@ -1141,11 +1142,12 @@ export default function RemixPage() {
             </span>
             <div className="ml-auto flex items-center gap-2">
               <button
-                onClick={() => setSequencerOpen(!sequencerOpen)}
-                className={detailBtnClass(sequencerOpen)}
-                style={detailBtnStyle}
+                onClick={() => download()}
+                disabled={isExporting || (!deckA.sourceBuffer && !deckB.sourceBuffer)}
+                className={detailBtnClass(isExporting)}
+                style={{ ...detailBtnStyle, opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.4 : 1 }}
               >
-                SEQ
+                {isExporting ? "WAIT" : "EXPORT"}
               </button>
               <button
                 onClick={() => setManualOpen(true)}
@@ -1154,13 +1156,6 @@ export default function RemixPage() {
               >
                 MANUAL
               </button>
-              <a
-                href="/"
-                className="text-[10px] uppercase tracking-[0.15em] px-2 py-0.5 border border-[#777]"
-                style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}
-              >
-                MAIN
-              </a>
             </div>
           </div>
 
