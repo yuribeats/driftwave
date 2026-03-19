@@ -256,14 +256,14 @@ function Deck({ id }: { id: DeckId }) {
               <div className="flex flex-col items-center gap-0.5">
                 <div className="label" style={{ fontSize: "7px", margin: 0 }}>STEP</div>
                 <input
-                  type="range" min={-4} max={0} step={0.1}
+                  type="range" min={-3} max={0} step={0.1}
                   value={Math.log10(nudgeStep)}
                   onChange={(e) => setNudgeStep(Math.pow(10, parseFloat(e.target.value)))}
                   className="w-[50px]"
                   style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "16px" }}
                 />
                 <span className="text-[6px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                  {nudgeStep >= 0.1 ? nudgeStep.toFixed(1) + "S" : nudgeStep >= 0.001 ? (nudgeStep * 1000).toFixed(1) + "MS" : (nudgeStep * 1000000).toFixed(0) + "US"}
+                  {nudgeStep >= 0.1 ? nudgeStep.toFixed(1) + "S" : (nudgeStep * 1000).toFixed(1) + "MS"}
                 </span>
               </div>
 
