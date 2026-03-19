@@ -68,7 +68,7 @@ function Deck({ id }: { id: DeckId }) {
   const satPct = Math.round((deck.params.saturation ?? 0) * 100);
   const toneLabel = deck.params.tone === 0 ? "FLAT" : deck.params.tone < 0 ? "DARK" : "BRIGHT";
   const expanded = expandParams(deck.params);
-  const adjustedBPM = deck.calculatedBPM ? Math.round(deck.calculatedBPM * rate) : null;
+  const adjustedBPM = deck.calculatedBPM ? (deck.calculatedBPM * rate) : null;
 
   const [bpmInput, setBpmInput] = useState("");
   const [editingBPM, setEditingBPM] = useState(false);
@@ -194,9 +194,9 @@ function Deck({ id }: { id: DeckId }) {
             ) : (
               <span
                 style={{ color: "var(--crt-bright)" }}
-                onClick={() => { if (adjustedBPM) { setBpmInput(String(adjustedBPM)); setEditingBPM(true); } }}
+                onClick={() => { if (adjustedBPM) { setBpmInput(adjustedBPM.toFixed(3)); setEditingBPM(true); } }}
               >
-                BPM: {adjustedBPM ?? "—"}
+                BPM: {adjustedBPM !== null ? adjustedBPM.toFixed(3) : "—"}
               </span>
             )}
             <span style={{ color: "var(--crt-bright)" }}>PITCH: {displaySemitones >= 0 ? "+" : ""}{displaySemitones.toFixed(1)}ST</span>
