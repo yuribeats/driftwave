@@ -659,9 +659,6 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
   setRegion: (id, start, end) => {
     const dk = deckKey(id);
-    const deck = getDeck(get(), id);
-    // Stop playback when adjusting region
-    if (deck.isPlaying) get().pause(id);
     set((s) => ({ [dk]: { ...s[dk], regionStart: start, regionEnd: end, pauseOffset: start } }));
   },
 

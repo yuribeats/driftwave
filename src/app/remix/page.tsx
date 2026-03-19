@@ -29,6 +29,62 @@ const faderStyle: React.CSSProperties = {
   transform: "translateX(-50%)",
 };
 
+function RotaryKnob({ angle, min, max, value, onChange, label, display }: {
+  angle: number; min: number; max: number; value: number;
+  onChange: (v: number) => void; label: string; display: string;
+}) {
+  const dragging = useRef(false);
+  const startY = useRef(0);
+  const startVal = useRef(0);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    dragging.current = true;
+    startY.current = e.clientY;
+    startVal.current = value;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [value]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    const dy = startY.current - e.clientY;
+    const range = max - min;
+    const sensitivity = range / 200;
+    const newVal = Math.max(min, Math.min(max, startVal.current + dy * sensitivity));
+    onChange(newVal);
+  }, [min, max, onChange]);
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="label" style={{ fontSize: "8px", margin: 0 }}>{label}</div>
+      <div
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        style={{
+          width: 36, height: 36, borderRadius: "50%",
+          background: "linear-gradient(145deg, #3a3a3a, #252525)",
+          boxShadow: "2px 2px 6px rgba(0,0,0,0.6), -1px -1px 3px rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.06)",
+          position: "relative", userSelect: "none", touchAction: "none",
+        }}
+      >
+        <div style={{
+          position: "absolute", top: 3, left: "50%", width: 2, height: 12,
+          background: "var(--accent-gold)", marginLeft: -1, borderRadius: 1,
+          transformOrigin: "center 15px",
+          transform: `rotate(${angle}deg)`,
+        }} />
+      </div>
+      <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+        {display}
+      </span>
+    </div>
+  );
+}
+
 const detailBtnClass = (active: boolean) =>
   `text-[8px] uppercase tracking-[0.15em] px-2 py-0.5 border ${
     active ? "border-[#333] bg-[rgba(255,115,0,0.15)]" : "border-[#777]"
@@ -224,87 +280,25 @@ function Deck({ id }: { id: DeckId }) {
         const inVal = deck.regionStart;
         const outVal = deck.regionEnd > 0 ? deck.regionEnd : dur;
         const win = 0.5;
-        const step = 0.0001;
+        const stp = 0.0001;
         const inMin = Math.max(0, inVal - win);
-        const inMax = Math.min(outVal - step, inVal + win);
-        const outMin = Math.max(inVal + step, outVal - win);
+        const inMax = Math.min(outVal - stp, inVal + win);
+        const outMin = Math.max(inVal + stp, outVal - win);
         const outMax = Math.min(dur, outVal + win);
-        // Map value to rotation: center = 0° (pointing up), range = -135° to +135°
         const valToAngle = (v: number, mn: number, mx: number) => {
           if (mx <= mn) return 0;
           return -135 + ((v - mn) / (mx - mn)) * 270;
         };
-        const inAngle = valToAngle(inVal, inMin, inMax);
-        const outAngle = valToAngle(outVal, outMin, outMax);
-
-        const Knob = ({ angle, min, max, value, onChange, label, display }: {
-          angle: number; min: number; max: number; value: number;
-          onChange: (v: number) => void; label: string; display: string;
-        }) => {
-          const knobRef = useRef<HTMLDivElement>(null);
-          const dragging = useRef(false);
-          const startY = useRef(0);
-          const startVal = useRef(0);
-
-          const onPointerDown = useCallback((e: React.PointerEvent) => {
-            dragging.current = true;
-            startY.current = e.clientY;
-            startVal.current = value;
-            (e.target as HTMLElement).setPointerCapture(e.pointerId);
-          }, [value]);
-
-          const onPointerMove = useCallback((e: React.PointerEvent) => {
-            if (!dragging.current) return;
-            const dy = startY.current - e.clientY; // up = positive
-            const range = max - min;
-            const sensitivity = range / 200; // 200px drag = full range
-            const newVal = Math.max(min, Math.min(max, startVal.current + dy * sensitivity));
-            onChange(newVal);
-          }, [min, max, onChange]);
-
-          const onPointerUp = useCallback(() => {
-            dragging.current = false;
-          }, []);
-
-          return (
-            <div className="flex flex-col items-center gap-1">
-              <div className="label" style={{ fontSize: "8px", margin: 0 }}>{label}</div>
-              <div
-                ref={knobRef}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                style={{
-                  width: 36, height: 36, borderRadius: "50%",
-                  background: "linear-gradient(145deg, #3a3a3a, #252525)",
-                  boxShadow: "2px 2px 6px rgba(0,0,0,0.6), -1px -1px 3px rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.06)",
-                  position: "relative", userSelect: "none", touchAction: "none",
-                }}
-              >
-                <div style={{
-                  position: "absolute", top: 3, left: "50%", width: 2, height: 12,
-                  background: "var(--accent-gold)", marginLeft: -1, borderRadius: 1,
-                  transformOrigin: "center 15px",
-                  transform: `rotate(${angle}deg)`,
-                }} />
-              </div>
-              <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                {display}
-              </span>
-            </div>
-          );
-        };
-
         return (
           <div className="zone-engraved">
             <div className="flex items-center gap-6 justify-center">
-              <Knob
-                angle={inAngle} min={inMin} max={inMax} value={inVal}
+              <RotaryKnob
+                angle={valToAngle(inVal, inMin, inMax)} min={inMin} max={inMax} value={inVal}
                 onChange={(v) => { if (v < outVal) setRegion(id, v, deck.regionEnd); }}
                 label="IN" display={inVal.toFixed(4) + "S"}
               />
-              <Knob
-                angle={outAngle} min={outMin} max={outMax} value={outVal}
+              <RotaryKnob
+                angle={valToAngle(outVal, outMin, outMax)} min={outMin} max={outMax} value={outVal}
                 onChange={(v) => { if (v > inVal) setRegion(id, deck.regionStart, v); }}
                 label="OUT" display={outVal.toFixed(4) + "S"}
               />
