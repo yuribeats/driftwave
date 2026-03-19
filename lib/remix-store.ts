@@ -648,23 +648,20 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       const data = await res.json();
       const ctx = getAudioContext();
 
-      // Decode base64 audio via Blob + fetch (handles large strings safely)
-      const decodeStem = async (b64: string | null): Promise<AudioBuffer | null> => {
-        if (!b64) return null;
-        const binaryStr = atob(b64);
-        const len = binaryStr.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
-        // .slice() to get a fresh ArrayBuffer (decodeAudioData detaches it)
-        const ab = bytes.buffer.slice(0);
+      // Fetch stem audio from URL and decode to AudioBuffer
+      const fetchStem = async (url: string | null): Promise<AudioBuffer | null> => {
+        if (!url) return null;
+        const audioRes = await fetch(url);
+        if (!audioRes.ok) return null;
+        const ab = await audioRes.arrayBuffer();
         return ctx.decodeAudioData(ab);
       };
 
       const [vocalsBuffer, drumsBuffer, bassBuffer, otherBuffer] = await Promise.all([
-        decodeStem(data.vocals),
-        decodeStem(data.drums),
-        decodeStem(data.bass),
-        decodeStem(data.other),
+        fetchStem(data.vocals),
+        fetchStem(data.drums),
+        fetchStem(data.bass),
+        fetchStem(data.other),
       ]);
 
       // Build "instrumental" by mixing bass + other + drums (everything except vocals)
