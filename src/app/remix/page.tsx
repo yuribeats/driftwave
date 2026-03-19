@@ -68,6 +68,10 @@ function Deck({ id }: { id: DeckId }) {
   const satPct = Math.round((deck.params.saturation ?? 0) * 100);
   const toneLabel = deck.params.tone === 0 ? "FLAT" : deck.params.tone < 0 ? "DARK" : "BRIGHT";
   const expanded = expandParams(deck.params);
+  const adjustedBPM = deck.calculatedBPM ? Math.round(deck.calculatedBPM * rate) : null;
+
+  const [bpmInput, setBpmInput] = useState("");
+  const [editingBPM, setEditingBPM] = useState(false);
 
   const handleSpeed = (v: number) => {
     if (linked) {
@@ -99,6 +103,23 @@ function Deck({ id }: { id: DeckId }) {
 
   const toggleLink = () => {
     setParam(id, "pitchSpeedLinked", linked ? 0 : 1);
+  };
+
+  const handleBPMSubmit = () => {
+    const newBPM = parseFloat(bpmInput);
+    if (!deck.calculatedBPM || isNaN(newBPM) || newBPM <= 0) {
+      setEditingBPM(false);
+      return;
+    }
+    const newRate = newBPM / deck.calculatedBPM;
+    const newSpeed = newRate - 1.0;
+    // Clamp to speed fader range
+    const clamped = Math.max(-0.5, Math.min(0.5, newSpeed));
+    setParam(id, "speed", clamped);
+    if (linked) {
+      setParam(id, "pitch", 12 * Math.log2(1.0 + clamped));
+    }
+    setEditingBPM(false);
   };
 
   const handleLoad = useCallback(() => {
@@ -155,8 +176,29 @@ function Deck({ id }: { id: DeckId }) {
           </div>
         </div>
         {deck.sourceBuffer && (
-          <div className="flex gap-3 text-[10px]" style={{ color: "var(--crt-dim)", fontFamily: "var(--font-crt)", fontSize: "12px" }}>
-            <span style={{ color: "var(--crt-bright)" }}>BPM: {deck.calculatedBPM ?? "—"}</span>
+          <div className="flex gap-3 text-[10px] items-center" style={{ color: "var(--crt-dim)", fontFamily: "var(--font-crt)", fontSize: "12px" }}>
+            {editingBPM ? (
+              <span style={{ color: "var(--crt-bright)" }}>
+                BPM:{" "}
+                <input
+                  type="text"
+                  autoFocus
+                  value={bpmInput}
+                  onChange={(e) => setBpmInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleBPMSubmit(); if (e.key === "Escape") setEditingBPM(false); }}
+                  onBlur={handleBPMSubmit}
+                  className="bg-transparent border-b border-[var(--crt-bright)] outline-none text-[12px] w-[50px]"
+                  style={{ color: "var(--crt-bright)", fontFamily: "var(--font-crt)" }}
+                />
+              </span>
+            ) : (
+              <span
+                style={{ color: "var(--crt-bright)" }}
+                onClick={() => { if (adjustedBPM) { setBpmInput(String(adjustedBPM)); setEditingBPM(true); } }}
+              >
+                BPM: {adjustedBPM ?? "—"}
+              </span>
+            )}
             <span style={{ color: "var(--crt-bright)" }}>PITCH: {displaySemitones >= 0 ? "+" : ""}{displaySemitones.toFixed(1)}ST</span>
           </div>
         )}

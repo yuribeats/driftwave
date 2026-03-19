@@ -5,7 +5,7 @@ import {
   expandParams,
 } from "@yuribeats/audio-utils";
 import { decodeFile } from "./file-decoder";
-import { getAudioContext } from "./audio-context";
+import { getAudioContext, ensurePitchWorklet, isPitchWorkletReady } from "./audio-context";
 
 /* ─── Saturation curve ─── */
 function makeSaturationCurve(drive: number): Float32Array<ArrayBuffer> {
@@ -43,6 +43,7 @@ function getCrossfaderGains(cf: number): { a: number; b: number } {
 /* ─── Types ─── */
 interface DeckNodes {
   source: AudioBufferSourceNode;
+  pitchShifter: AudioWorkletNode | null;
   lowShelf: BiquadFilterNode;
   peaking: BiquadFilterNode;
   highShelf: BiquadFilterNode;
@@ -335,8 +336,21 @@ function buildDeckGraph(
   const deckGain = ctx.createGain();
   deckGain.gain.value = volume * crossfaderGain;
 
-  // Connect: source → EQ → sat → reverb → analyser → deckGain → shared output
-  source.connect(lowShelf);
+  // Pitch shifter worklet (unlinked mode only)
+  let pitchShifter: AudioWorkletNode | null = null;
+  if (!expanded.pitchSpeedLinked && isPitchWorkletReady()) {
+    pitchShifter = new AudioWorkletNode(ctx, "pitch-shifter-processor");
+    const netShift = expanded.pitchFactor / expanded.rate;
+    pitchShifter.port.postMessage({ pitchFactor: netShift });
+  }
+
+  // Connect: source → [pitchShifter?] → EQ → sat → reverb → analyser → deckGain → shared output
+  if (pitchShifter) {
+    source.connect(pitchShifter);
+    pitchShifter.connect(lowShelf);
+  } else {
+    source.connect(lowShelf);
+  }
   lowShelf.connect(peaking);
   peaking.connect(highShelf);
   highShelf.connect(bump);
@@ -366,7 +380,7 @@ function buildDeckGraph(
   }
 
   return {
-    source, lowShelf, peaking, highShelf, bump,
+    source, pitchShifter, lowShelf, peaking, highShelf, bump,
     waveshaper, satFilter, satDry, satWet,
     convolver, dryGain, wetGain, analyser, deckGain,
   };
@@ -438,6 +452,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
     const ctx = getAudioContext();
     if (ctx.state === "suspended") await ctx.resume();
+    await ensurePitchWorklet();
 
     // Re-read deck state after async gap
     const freshDeck = getDeck(get(), id);
@@ -537,6 +552,12 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
     if (paramKey === "speed") {
       deck.nodes.source.playbackRate.value = expanded.rate;
+    }
+
+    // Update pitch shifter compensation when speed or pitch changes
+    if (deck.nodes.pitchShifter && (paramKey === "speed" || paramKey === "pitch")) {
+      const netShift = expanded.pitchFactor / expanded.rate;
+      deck.nodes.pitchShifter.port.postMessage({ pitchFactor: netShift });
     }
 
     const toneKeys: (keyof SimpleParams)[] = ["tone", "eqLowOverride", "eqMidOverride", "eqHighOverride", "eqBumpFreqOverride", "eqBumpGainOverride"];
