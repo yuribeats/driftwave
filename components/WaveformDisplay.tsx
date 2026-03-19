@@ -67,7 +67,6 @@ export default function WaveformDisplay({
   onScrub,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
   const peaksRef = useRef<Float32Array | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragMode, setDragMode] = useState<DragMode>(null);
@@ -333,7 +332,8 @@ export default function WaveformDisplay({
       ctx.fillText(`${zoom.toFixed(1)}X`, w - 4, 10);
     }
 
-  }, [audioBuffer, isPlaying, pauseOffset, effectiveStart, effectiveEnd, duration, viewStart, viewEnd, zoom, getCursorTime]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioBuffer, effectiveStart, effectiveEnd, duration, viewStart, viewEnd, zoom, getCursorTime]);
 
   // Animation loop — only useEffect controls scheduling, draw never self-schedules
   useEffect(() => {

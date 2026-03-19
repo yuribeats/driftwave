@@ -9,6 +9,63 @@ export interface RenderInput {
   params: ProcessingParams;
 }
 
+/**
+ * Granular pitch shift applied directly to sample data.
+ * Two overlapping Hann-windowed grains, constant-power crossfade.
+ */
+function pitchShiftBuffer(
+  channelData: Float32Array[],
+  pitchFactor: number
+): Float32Array[] {
+  if (Math.abs(pitchFactor - 1.0) < 0.0005) return channelData;
+
+  const numCh = channelData.length;
+  const len = channelData[0].length;
+  const grainSize = 2048;
+  const halfGrain = grainSize / 2;
+
+  // Pre-compute Hann window
+  const win = new Float32Array(grainSize);
+  for (let i = 0; i < grainSize; i++) {
+    win[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / grainSize));
+  }
+
+  const output: Float32Array[] = [];
+  for (let c = 0; c < numCh; c++) output.push(new Float32Array(len));
+
+  // State for two read heads
+  const rPos = [0, halfGrain];
+  const rPhase = [0, halfGrain];
+
+  for (let i = 0; i < len; i++) {
+    for (let g = 0; g < 2; g++) {
+      const rp = rPos[g];
+      const idx = Math.floor(rp);
+      const frac = rp - idx;
+      const w = win[rPhase[g]];
+
+      for (let c = 0; c < numCh; c++) {
+        const data = channelData[c];
+        const i0 = Math.max(0, Math.min(idx, len - 1));
+        const i1 = Math.max(0, Math.min(idx + 1, len - 1));
+        const s = data[i0] * (1 - frac) + data[i1] * frac;
+        output[c][i] += s * w;
+      }
+
+      rPos[g] += pitchFactor;
+      rPhase[g]++;
+
+      if (rPhase[g] >= grainSize) {
+        rPhase[g] = 0;
+        rPos[g] = i - grainSize + 1;
+        if (rPos[g] < 0) rPos[g] = 0;
+      }
+    }
+  }
+
+  return output;
+}
+
 export async function renderOffline(input: RenderInput): Promise<{
   channelData: Float32Array[];
   sampleRate: number;
@@ -133,15 +190,23 @@ export async function renderOffline(input: RenderInput): Promise<{
   const rendered = await offlineCtx.startRendering();
 
   // Extract channel data
-  const outputChannels: Float32Array[] = [];
+  let outputChannels: Float32Array[] = [];
   for (let c = 0; c < rendered.numberOfChannels; c++) {
     outputChannels.push(new Float32Array(rendered.getChannelData(c)));
+  }
+
+  // Apply pitch shift post-processing when unlinked and pitchFactor != 1
+  if (!params.pitchSpeedLinked && Math.abs(params.pitchFactor - 1.0) > 0.0005) {
+    // Compensate: playbackRate already shifted pitch by `rate`. We want pitchFactor.
+    // Net shift needed: pitchFactor / rate
+    const netShift = params.pitchFactor / params.rate;
+    outputChannels = pitchShiftBuffer(outputChannels, netShift);
   }
 
   return {
     channelData: outputChannels,
     sampleRate: rendered.sampleRate,
     numberOfChannels: rendered.numberOfChannels,
-    length: rendered.length,
+    length: outputChannels[0].length,
   };
 }

@@ -5,6 +5,7 @@ import { expandParams } from "@yuribeats/audio-utils";
 import { useRemixStore } from "../../../lib/remix-store";
 import { getAudioContext } from "../../../lib/audio-context";
 import WaveformDisplay from "../../../components/WaveformDisplay";
+import PianoKeyboard from "../../../components/PianoKeyboard";
 import Toast from "../../../components/Toast";
 
 type DeckId = "A" | "B";
@@ -48,6 +49,7 @@ function Deck({ id }: { id: DeckId }) {
   const setRegion = useRemixStore((s) => s.setRegion);
   const seek = useRemixStore((s) => s.seek);
   const scrub = useRemixStore((s) => s.scrub);
+  const calculateBPMFromLoop = useRemixStore((s) => s.calculateBPMFromLoop);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [stepMode, setStepMode] = useState(false);
@@ -56,33 +58,45 @@ function Deck({ id }: { id: DeckId }) {
   const [satDetail, setSatDetail] = useState(false);
 
   const rate = 1.0 + deck.params.speed;
-  const semitones = 12 * Math.log2(rate);
+  const pitchSemitones = deck.params.pitch ?? 0;
+  const linked = deck.params.pitchSpeedLinked ?? true;
+  const speedSemitones = 12 * Math.log2(rate);
+  const displaySemitones = linked ? speedSemitones : pitchSemitones;
   const reverbPct = Math.round(deck.params.reverb * 100);
   const satPct = Math.round((deck.params.saturation ?? 0) * 100);
   const toneLabel = deck.params.tone === 0 ? "FLAT" : deck.params.tone < 0 ? "DARK" : "BRIGHT";
   const expanded = expandParams(deck.params);
 
-  // Speed-adjusted BPM and key
-  const adjustedBPM = deck.detectedBPM ? Math.round(deck.detectedBPM * rate) : null;
-  const adjustedKey = (() => {
-    if (!deck.detectedKey) return null;
-    if (semitones === 0) return deck.detectedKey;
-    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-    const parts = deck.detectedKey.split(" ");
-    const rootNote = parts[0];
-    const quality = parts[1] || "";
-    const rootIdx = NOTE_NAMES.indexOf(rootNote);
-    if (rootIdx === -1) return deck.detectedKey;
-    const shifted = ((rootIdx + Math.round(semitones)) % 12 + 12) % 12;
-    return NOTE_NAMES[shifted] + (quality ? " " + quality : "");
-  })();
-
   const handleSpeed = (v: number) => {
-    if (stepMode) {
-      setParam(id, "speed", snapToSemitone(v));
+    if (linked) {
+      // Varispeed: speed and pitch move together
+      if (stepMode) {
+        const snapped = snapToSemitone(v);
+        setParam(id, "speed", snapped);
+        setParam(id, "pitch", 12 * Math.log2(1.0 + snapped));
+      } else {
+        setParam(id, "speed", v);
+        setParam(id, "pitch", 12 * Math.log2(1.0 + v));
+      }
     } else {
       setParam(id, "speed", v);
     }
+  };
+
+  const handlePitch = (v: number) => {
+    if (stepMode) v = Math.round(v);
+    if (linked) {
+      // Varispeed: pitch drives speed
+      const newRate = Math.pow(2, v / 12);
+      setParam(id, "pitch", v);
+      setParam(id, "speed", newRate - 1.0);
+    } else {
+      setParam(id, "pitch", v);
+    }
+  };
+
+  const toggleLink = () => {
+    setParam(id, "pitchSpeedLinked", linked ? 0 : 1);
   };
 
   const handleLoad = useCallback(() => {
@@ -140,8 +154,8 @@ function Deck({ id }: { id: DeckId }) {
         </div>
         {deck.sourceBuffer && (
           <div className="flex gap-3 text-[10px]" style={{ color: "var(--crt-dim)", fontFamily: "var(--font-crt)", fontSize: "12px" }}>
-            <span style={{ color: "var(--crt-bright)" }}>BPM: {adjustedBPM ?? "—"}</span>
-            <span style={{ color: "var(--crt-bright)" }}>KEY: {adjustedKey ?? "—"}</span>
+            <span style={{ color: "var(--crt-bright)" }}>BPM: {deck.calculatedBPM ?? "—"}</span>
+            <span style={{ color: "var(--crt-bright)" }}>PITCH: {displaySemitones >= 0 ? "+" : ""}{displaySemitones.toFixed(1)}ST</span>
           </div>
         )}
       </div>
@@ -195,6 +209,21 @@ function Deck({ id }: { id: DeckId }) {
         </div>
       )}
 
+      {/* BPM from loop + Key finder */}
+      {deck.sourceBuffer && (
+        <div className="flex items-center gap-4 justify-center">
+          <button
+            onClick={() => calculateBPMFromLoop(id)}
+            disabled={deck.regionStart === 0 && deck.regionEnd === 0}
+            className={detailBtnClass(false)}
+            style={{ ...detailBtnStyle, opacity: (deck.regionStart === 0 && deck.regionEnd === 0) ? 0.4 : 1 }}
+          >
+            CALC BPM FROM LOOP
+          </button>
+          <PianoKeyboard />
+        </div>
+      )}
+
       {/* Transport buttons */}
       <div className="flex items-center gap-2 justify-center">
         <div className="flex flex-col items-center">
@@ -225,13 +254,13 @@ function Deck({ id }: { id: DeckId }) {
 
       {/* Effect faders */}
       <div className="zone-engraved">
-        <div className="grid grid-cols-4 gap-2" style={{ justifyItems: "center" }}>
+        <div className="grid grid-cols-5 gap-2" style={{ justifyItems: "center" }}>
           {/* Speed */}
           <div className="flex flex-col items-center gap-1">
             <div className="relative h-[100px] w-[36px] flex justify-center">
               <div className="slider-track h-full" />
               <input
-                type="range" min="-0.5" max="0.5" step={stepMode ? 0.001 : 0.01}
+                type="range" min="-0.5" max="0.5" step={stepMode && linked ? 0.001 : 0.01}
                 value={deck.params.speed}
                 onChange={(e) => handleSpeed(parseFloat(e.target.value))}
                 className="absolute h-full"
@@ -239,7 +268,24 @@ function Deck({ id }: { id: DeckId }) {
               />
             </div>
             <div className="label" style={{ fontSize: "9px", marginTop: "4px" }}>SPEED</div>
-            <span className="text-[9px]" style={{ color: "var(--text-dark)" }}>{rate.toFixed(2)}X / {semitones >= 0 ? "+" : ""}{semitones.toFixed(1)}ST</span>
+            <span className="text-[9px]" style={{ color: "var(--text-dark)" }}>{rate.toFixed(2)}X</span>
+            <button onClick={toggleLink} className={detailBtnClass(linked)} style={detailBtnStyle}>LINK</button>
+          </div>
+
+          {/* Pitch */}
+          <div className="flex flex-col items-center gap-1">
+            <div className="relative h-[100px] w-[36px] flex justify-center">
+              <div className="slider-track h-full" />
+              <input
+                type="range" min="-12" max="12" step={stepMode ? 1 : 0.1}
+                value={linked ? speedSemitones : pitchSemitones}
+                onChange={(e) => handlePitch(parseFloat(e.target.value))}
+                className="absolute h-full"
+                style={{ ...faderStyle, width: "36px" }}
+              />
+            </div>
+            <div className="label" style={{ fontSize: "9px", marginTop: "4px" }}>PITCH</div>
+            <span className="text-[9px]" style={{ color: "var(--text-dark)" }}>{displaySemitones >= 0 ? "+" : ""}{displaySemitones.toFixed(1)}ST</span>
             <button onClick={() => setStepMode(!stepMode)} className={detailBtnClass(stepMode)} style={detailBtnStyle}>STEP</button>
           </div>
 

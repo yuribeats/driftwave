@@ -3,8 +3,6 @@ import {
   SimpleParams,
   SIMPLE_DEFAULTS,
   expandParams,
-  detectBPM,
-  detectKey,
 } from "@yuribeats/audio-utils";
 import { decodeFile } from "./file-decoder";
 import { getAudioContext } from "./audio-context";
@@ -74,8 +72,7 @@ interface DeckState {
   pauseOffset: number;
   volume: number;
   stemError: string | null;
-  detectedBPM: number | null;
-  detectedKey: string | null;
+  calculatedBPM: number | null;
   regionStart: number;  // seconds into source buffer
   regionEnd: number;    // seconds into source buffer (0 = full track)
   activeStem: StemType | null;
@@ -96,9 +93,8 @@ const defaultDeck = (): DeckState => ({
   startedAt: 0,
   pauseOffset: 0,
   volume: 0.8,
-  detectedBPM: null,
   stemError: null,
-  detectedKey: null,
+  calculatedBPM: null,
   regionStart: 0,
   regionEnd: 0,
   activeStem: null,
@@ -149,7 +145,7 @@ interface RemixStore {
   play: (deck: DeckId) => Promise<void>;
   stop: (deck: DeckId) => void;
   pause: (deck: DeckId) => void;
-  setParam: (deck: DeckId, key: keyof SimpleParams, value: number) => void;
+  setParam: (deck: DeckId, key: keyof SimpleParams, value: number | boolean) => void;
   setVolume: (deck: DeckId, volume: number) => void;
   setCrossfader: (value: number) => void;
   eject: (deck: DeckId) => void;
@@ -160,6 +156,7 @@ interface RemixStore {
   seek: (deck: DeckId, position: number) => Promise<void>;
   scrub: (deck: DeckId, position: number) => void;
   syncPlay: () => Promise<void>;
+  calculateBPMFromLoop: (deck: DeckId) => void;
 }
 
 /* ─── Shared output bus: merger → EQ → compressor → makeup → destination ─── */
@@ -349,19 +346,15 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   loadFile: async (id, file) => {
     const dk = deckKey(id);
     get().stop(id);
-    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, detectedBPM: null, detectedKey: null, activeStem: null, stemBuffers: null, stemError: null, sourceFile: file } }));
+    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, calculatedBPM: null, activeStem: null, stemBuffers: null, stemError: null, sourceFile: file } }));
     try {
       const audioBuffer = await decodeFile(file);
-      const bpm = detectBPM(audioBuffer);
-      const musicalKey = detectKey(audioBuffer);
       set((s) => ({
         [dk]: {
           ...s[dk],
           sourceBuffer: audioBuffer,
           sourceFilename: file.name.replace(/\.[^/.]+$/, ""),
           isLoading: false,
-          detectedBPM: bpm || null,
-          detectedKey: musicalKey || null,
           regionStart: 0,
           regionEnd: 0,
         },
@@ -591,6 +584,18 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     // happens on the same AudioContext so they'll be sample-aligned
     if (hasA) get().play("A");
     if (hasB) get().play("B");
+  },
+
+  calculateBPMFromLoop: (id) => {
+    const dk = deckKey(id);
+    const deck = getDeck(get(), id);
+    if (!deck.sourceBuffer) return;
+    const rEnd = deck.regionEnd > 0 ? deck.regionEnd : deck.sourceBuffer.duration;
+    const loopLength = rEnd - deck.regionStart;
+    if (loopLength <= 0) return;
+    // 4 bars: BPM = 240 / loopLength
+    const bpm = Math.round(240 / loopLength);
+    set((s) => ({ [dk]: { ...s[dk], calculatedBPM: bpm } }));
   },
 
   setStem: (id, stem) => {

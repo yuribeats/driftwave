@@ -8,10 +8,11 @@ import {
 } from "@yuribeats/audio-utils";
 import { decodeFile, decodeArrayBuffer } from "./file-decoder";
 import { fetchYouTubeAudio } from "./cobalt";
-import { getAudioContext } from "./audio-context";
+import { getAudioContext, isPitchWorkletReady } from "./audio-context";
 
 interface AudioNodes {
   source: AudioBufferSourceNode;
+  pitchShifter: AudioWorkletNode | null;
   lowShelf: BiquadFilterNode;
   peaking: BiquadFilterNode;
   highShelf: BiquadFilterNode;
@@ -149,6 +150,14 @@ function buildGraph(
   source.buffer = sourceBuffer;
   source.playbackRate.value = expanded.rate;
 
+  // Pitch shifter (worklet) — inserted before EQ when unlinked
+  let pitchShifter: AudioWorkletNode | null = null;
+  if (!expanded.pitchSpeedLinked && isPitchWorkletReady()) {
+    pitchShifter = new AudioWorkletNode(ctx, "pitch-shifter-processor");
+    const pf = expanded.pitchFactor / expanded.rate;
+    pitchShifter.port.postMessage({ pitchFactor: pf });
+  }
+
   const lowShelf = ctx.createBiquadFilter();
   lowShelf.type = "lowshelf";
   lowShelf.frequency.value = 200;
@@ -207,8 +216,13 @@ function buildGraph(
   const merger = ctx.createGain();
   merger.gain.value = 1;
 
-  // Signal chain: source → EQ → saturation → reverb → output
-  source.connect(lowShelf);
+  // Signal chain: source → [pitchShifter] → EQ → saturation → reverb → output
+  if (pitchShifter) {
+    source.connect(pitchShifter);
+    pitchShifter.connect(lowShelf);
+  } else {
+    source.connect(lowShelf);
+  }
   lowShelf.connect(peaking);
   peaking.connect(highShelf);
   highShelf.connect(bump);
@@ -233,7 +247,7 @@ function buildGraph(
   source.onended = onEnded;
   source.start(0, offset);
 
-  return { source, lowShelf, peaking, highShelf, bump, waveshaper, satFilter, satDry, satWet, convolver, dryGain, wetGain, analyser };
+  return { source, pitchShifter, lowShelf, peaking, highShelf, bump, waveshaper, satFilter, satDry, satWet, convolver, dryGain, wetGain, analyser };
 }
 
 export const useStore = create<AppStore>((set, get) => ({
@@ -487,6 +501,8 @@ export const useStore = create<AppStore>((set, get) => ({
   randomize: () => {
     const newParams: SimpleParams = {
       speed: -0.5 + Math.random() * 1.0,
+      pitch: 0,
+      pitchSpeedLinked: true,
       reverb: Math.random(),
       tone: -1 + Math.random() * 2,
       saturation: Math.random() * 0.6,
