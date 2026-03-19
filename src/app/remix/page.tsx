@@ -29,74 +29,6 @@ const faderStyle: React.CSSProperties = {
   transform: "translateX(-50%)",
 };
 
-function RotaryKnob({ angle, min, max, value, onChange, label, display }: {
-  angle: number; min: number; max: number; value: number;
-  onChange: (v: number) => void; label: string; display: string;
-}) {
-  const dragging = useRef(false);
-  const startY = useRef(0);
-  const startVal = useRef(0);
-
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    dragging.current = true;
-    startY.current = e.clientY;
-    startVal.current = value;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [value]);
-
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return;
-    const dy = startY.current - e.clientY;
-    const range = max - min;
-    const sensitivity = range / 200;
-    const newVal = Math.max(min, Math.min(max, startVal.current + dy * sensitivity));
-    onChange(newVal);
-  }, [min, max, onChange]);
-
-  const onPointerUp = useCallback(() => {
-    dragging.current = false;
-  }, []);
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="label" style={{ fontSize: "8px", margin: 0 }}>{label}</div>
-      <div
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        style={{
-          width: 40, height: 40, borderRadius: "50%",
-          background: "linear-gradient(145deg, #3a3a3a, #252525)",
-          boxShadow: "2px 2px 6px rgba(0,0,0,0.6), -1px -1px 3px rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.06)",
-          position: "relative", userSelect: "none", touchAction: "none",
-        }}
-      >
-        {/* Noon reference tick */}
-        <div style={{
-          position: "absolute", top: 2, left: "50%", width: 2, height: 6,
-          background: "#666", marginLeft: -1, borderRadius: 1,
-        }} />
-        {/* Pointer */}
-        <div style={{
-          position: "absolute", top: 4, left: "50%", width: 3, height: 14,
-          background: "var(--accent-gold)", marginLeft: -1.5, borderRadius: 1.5,
-          transformOrigin: "center 16px",
-          transform: `rotate(${angle}deg)`,
-          boxShadow: "0 0 4px rgba(200,169,110,0.6)",
-        }} />
-        {/* Center dot */}
-        <div style={{
-          position: "absolute", top: "50%", left: "50%", width: 6, height: 6,
-          background: "#555", borderRadius: "50%", marginTop: -3, marginLeft: -3,
-        }} />
-      </div>
-      <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-        {display}
-      </span>
-    </div>
-  );
-}
-
 const detailBtnClass = (active: boolean) =>
   `text-[8px] uppercase tracking-[0.15em] px-2 py-0.5 border ${
     active ? "border-[#333] bg-[rgba(255,115,0,0.15)]" : "border-[#777]"
@@ -126,7 +58,7 @@ function Deck({ id }: { id: DeckId }) {
   const [reverbDetail, setReverbDetail] = useState(false);
   const [toneDetail, setToneDetail] = useState(false);
   const [satDetail, setSatDetail] = useState(false);
-  const [knobRange, setKnobRange] = useState(0.5); // ±seconds window for IN/OUT knobs
+  const [nudgeStep, setNudgeStep] = useState(0.001); // seconds per nudge press
 
   const rate = 1.0 + deck.params.speed;
   const pitchSemitones = deck.params.pitch ?? 0;
@@ -287,45 +219,65 @@ function Deck({ id }: { id: DeckId }) {
         onScrub={(pos) => scrub(id, pos)}
       />
 
-      {/* Loop IN/OUT rotary knobs */}
+      {/* Loop IN/OUT nudge controls */}
       {deck.sourceBuffer && (deck.regionStart > 0 || deck.regionEnd > 0) && (() => {
         const dur = deck.sourceBuffer!.duration;
         const inVal = deck.regionStart;
         const outVal = deck.regionEnd > 0 ? deck.regionEnd : dur;
-        const stp = 0.0001 * (knobRange / 0.5); // scale step with range
-        const inMin = Math.max(0, inVal - knobRange);
-        const inMax = Math.min(outVal - stp, inVal + knobRange);
-        const outMin = Math.max(inVal + stp, outVal - knobRange);
-        const outMax = Math.min(dur, outVal + knobRange);
-        const valToAngle = (v: number, mn: number, mx: number) => {
-          if (mx <= mn) return 0;
-          return -135 + ((v - mn) / (mx - mn)) * 270;
+        const nudgeIn = (dir: number) => {
+          const v = Math.max(0, Math.min(outVal - 0.001, inVal + dir * nudgeStep));
+          setRegion(id, v, deck.regionEnd);
+        };
+        const nudgeOut = (dir: number) => {
+          const v = Math.max(inVal + 0.001, Math.min(dur, outVal + dir * nudgeStep));
+          setRegion(id, deck.regionStart, v);
+        };
+        const btnStyle: React.CSSProperties = {
+          fontFamily: "var(--font-tech)", color: "var(--accent-gold)", background: "transparent",
+          fontSize: "12px", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center",
+          border: "1px solid #444",
         };
         return (
           <div className="zone-engraved">
-            <div className="flex items-center gap-5 justify-center">
-              <RotaryKnob
-                angle={valToAngle(inVal, inMin, inMax)} min={inMin} max={inMax} value={inVal}
-                onChange={(v) => { if (v < outVal) setRegion(id, v, deck.regionEnd); }}
-                label="IN" display={inVal.toFixed(4) + "S"}
-              />
+            <div className="flex items-center gap-4 justify-center">
+              {/* IN */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="label" style={{ fontSize: "8px", margin: 0 }}>IN</div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => nudgeIn(-1)} style={btnStyle}>&lt;</button>
+                  <span className="text-[8px] w-[70px] text-center" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+                    {inVal.toFixed(4)}S
+                  </span>
+                  <button onClick={() => nudgeIn(1)} style={btnStyle}>&gt;</button>
+                </div>
+              </div>
+
+              {/* Step size */}
               <div className="flex flex-col items-center gap-0.5">
-                <div className="label" style={{ fontSize: "7px", margin: 0 }}>RANGE</div>
+                <div className="label" style={{ fontSize: "7px", margin: 0 }}>STEP</div>
                 <input
-                  type="range" min={0.05} max={5} step={0.05} value={knobRange}
-                  onChange={(e) => setKnobRange(parseFloat(e.target.value))}
+                  type="range" min={-4} max={0} step={0.1}
+                  value={Math.log10(nudgeStep)}
+                  onChange={(e) => setNudgeStep(Math.pow(10, parseFloat(e.target.value)))}
                   className="w-[50px]"
                   style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "16px" }}
                 />
                 <span className="text-[6px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                  {knobRange >= 1 ? knobRange.toFixed(1) + "S" : (knobRange * 1000).toFixed(0) + "MS"}
+                  {nudgeStep >= 0.1 ? nudgeStep.toFixed(1) + "S" : nudgeStep >= 0.001 ? (nudgeStep * 1000).toFixed(1) + "MS" : (nudgeStep * 1000000).toFixed(0) + "US"}
                 </span>
               </div>
-              <RotaryKnob
-                angle={valToAngle(outVal, outMin, outMax)} min={outMin} max={outMax} value={outVal}
-                onChange={(v) => { if (v > inVal) setRegion(id, deck.regionStart, v); }}
-                label="OUT" display={outVal.toFixed(4) + "S"}
-              />
+
+              {/* OUT */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="label" style={{ fontSize: "8px", margin: 0 }}>OUT</div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => nudgeOut(-1)} style={btnStyle}>&lt;</button>
+                  <span className="text-[8px] w-[70px] text-center" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+                    {outVal.toFixed(4)}S
+                  </span>
+                  <button onClick={() => nudgeOut(1)} style={btnStyle}>&gt;</button>
+                </div>
+              </div>
             </div>
           </div>
         );
