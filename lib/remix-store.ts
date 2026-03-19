@@ -920,25 +920,15 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const { deckA, deckB } = get();
     if (!deckA.calculatedBPM || !deckB.calculatedBPM) return;
 
+    // Deck A is alpha — match B's BPM to A's current BPM
     const rateA = 1.0 + deckA.params.speed;
-    const rateB = 1.0 + deckB.params.speed;
-    const bpmA = deckA.calculatedBPM * rateA;
-    const bpmB = deckB.calculatedBPM * rateB;
+    const targetBPM = deckA.calculatedBPM * rateA;
 
-    // Target = average of both current BPMs
-    const target = (bpmA + bpmB) / 2;
-
-    // Adjust each deck's speed so calculatedBPM * newRate = target
-    const adjustDeck = (id: DeckId, rawBPM: number, linked: boolean) => {
-      const newRate = target / rawBPM;
-      const newSpeed = Math.max(-0.5, Math.min(0.5, newRate - 1.0));
-      get().setParam(id, "speed", newSpeed);
-      if (linked) {
-        get().setParam(id, "pitch", 12 * Math.log2(1.0 + newSpeed));
-      }
-    };
-
-    adjustDeck("A", deckA.calculatedBPM, deckA.params.pitchSpeedLinked ?? true);
-    adjustDeck("B", deckB.calculatedBPM, deckB.params.pitchSpeedLinked ?? true);
+    const newRate = targetBPM / deckB.calculatedBPM;
+    const newSpeed = Math.max(-0.5, Math.min(0.5, newRate - 1.0));
+    get().setParam("B", "speed", newSpeed);
+    if (deckB.params.pitchSpeedLinked ?? true) {
+      get().setParam("B", "pitch", 12 * Math.log2(1.0 + newSpeed));
+    }
   },
 }));
