@@ -58,7 +58,7 @@ function Deck({ id }: { id: DeckId }) {
   const [reverbDetail, setReverbDetail] = useState(false);
   const [toneDetail, setToneDetail] = useState(false);
   const [satDetail, setSatDetail] = useState(false);
-  const [fineness, setFineness] = useState(0.01); // seconds per unit
+  const [fineness, setFineness] = useState(0.0001); // seconds per unit
 
   const rate = 1.0 + deck.params.speed;
   const pitchSemitones = deck.params.pitch ?? 0;
@@ -241,7 +241,7 @@ function Deck({ id }: { id: DeckId }) {
                 style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "20px" }}
               />
               <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                {deck.regionStart.toFixed(3)}S
+                {deck.regionStart.toFixed(5)}S
               </span>
             </div>
 
@@ -262,7 +262,7 @@ function Deck({ id }: { id: DeckId }) {
                 style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "20px" }}
               />
               <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                {(deck.regionEnd > 0 ? deck.regionEnd : deck.sourceBuffer.duration).toFixed(3)}S
+                {(deck.regionEnd > 0 ? deck.regionEnd : deck.sourceBuffer.duration).toFixed(5)}S
               </span>
             </div>
 
@@ -271,16 +271,16 @@ function Deck({ id }: { id: DeckId }) {
               <div className="label" style={{ fontSize: "8px", margin: 0 }}>FINE</div>
               <input
                 type="range"
-                min={0.001}
-                max={0.5}
-                step={0.001}
+                min={0.00001}
+                max={0.1}
+                step={0.00001}
                 value={fineness}
                 onChange={(e) => setFineness(parseFloat(e.target.value))}
                 className="w-[60px]"
                 style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "20px" }}
               />
               <span className="text-[7px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-                {fineness >= 0.1 ? fineness.toFixed(1) : fineness >= 0.01 ? fineness.toFixed(2) : fineness.toFixed(3)}S
+                {fineness >= 0.001 ? (fineness * 1000).toFixed(1) + "MS" : (fineness * 1000000).toFixed(0) + "US"}
               </span>
             </div>
           </div>

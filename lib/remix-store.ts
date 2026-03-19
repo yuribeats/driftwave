@@ -240,8 +240,8 @@ function getSharedMerger(): GainNode {
     masterMakeup.gain.value = 1;
 
     masterLimiter = ctx.createDynamicsCompressor();
-    masterLimiter.threshold.value = -1;
-    masterLimiter.ratio.value = 20;
+    masterLimiter.threshold.value = 0;
+    masterLimiter.ratio.value = 1;
     masterLimiter.attack.value = 0.001;
     masterLimiter.release.value = 0.01;
     masterLimiter.knee.value = 0;
