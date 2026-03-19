@@ -162,28 +162,35 @@ function Deck({ id }: { id: DeckId }) {
 
       {/* Stem isolation */}
       {deck.sourceBuffer && (
-        <div className="flex items-center gap-2 justify-center">
-          <span className="label" style={{ margin: 0, fontSize: "8px" }}>
-            {deck.isStemLoading ? "SEPARATING..." : "ISOLATE:"}
-          </span>
-          {(["vocals", "drums", "instrumental"] as const).map((stem) => (
-            <button
-              key={stem}
-              onClick={() => setStem(id, deck.activeStem === stem ? null : stem)}
-              disabled={deck.isStemLoading}
-              className={detailBtnClass(deck.activeStem === stem)}
-              style={{
-                ...detailBtnStyle,
-                opacity: deck.isStemLoading ? 0.5 : 1,
-              }}
-            >
-              {deck.isStemLoading && deck.activeStem === stem
-                ? "..."
-                : stem === "instrumental" ? "INST" : stem.toUpperCase()}
-            </button>
-          ))}
-          {deck.stemBuffers && (
-            <span className="text-[7px]" style={{ color: "#555", fontFamily: "var(--font-tech)" }}>READY</span>
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2 justify-center">
+            <span className="label" style={{ margin: 0, fontSize: "8px" }}>
+              {deck.isStemLoading ? "SEPARATING..." : "ISOLATE:"}
+            </span>
+            {(["vocals", "drums", "instrumental"] as const).map((stem) => (
+              <button
+                key={stem}
+                onClick={() => setStem(id, stem)}
+                disabled={deck.isStemLoading}
+                className={detailBtnClass(deck.activeStem === stem && !deck.isStemLoading)}
+                style={{
+                  ...detailBtnStyle,
+                  opacity: deck.isStemLoading ? 0.5 : 1,
+                }}
+              >
+                {deck.isStemLoading && deck.activeStem === stem
+                  ? "..."
+                  : stem === "instrumental" ? "INST" : stem.toUpperCase()}
+              </button>
+            ))}
+            {deck.stemBuffers && !deck.isStemLoading && (
+              <span className="text-[7px]" style={{ color: "var(--crt-dim)", fontFamily: "var(--font-tech)" }}>READY</span>
+            )}
+          </div>
+          {deck.stemError && (
+            <span className="text-[8px]" style={{ color: "var(--led-red-on)", fontFamily: "var(--font-tech)" }}>
+              {deck.stemError.toUpperCase()}
+            </span>
           )}
         </div>
       )}

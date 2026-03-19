@@ -73,6 +73,7 @@ interface DeckState {
   startedAt: number;
   pauseOffset: number;
   volume: number;
+  stemError: string | null;
   detectedBPM: number | null;
   detectedKey: string | null;
   regionStart: number;  // seconds into source buffer
@@ -96,6 +97,7 @@ const defaultDeck = (): DeckState => ({
   pauseOffset: 0,
   volume: 0.8,
   detectedBPM: null,
+  stemError: null,
   detectedKey: null,
   regionStart: 0,
   regionEnd: 0,
@@ -347,7 +349,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   loadFile: async (id, file) => {
     const dk = deckKey(id);
     get().stop(id);
-    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, detectedBPM: null, detectedKey: null, activeStem: null, stemBuffers: null, sourceFile: file } }));
+    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, detectedBPM: null, detectedKey: null, activeStem: null, stemBuffers: null, stemError: null, sourceFile: file } }));
     try {
       const audioBuffer = await decodeFile(file);
       const bpm = detectBPM(audioBuffer);
@@ -595,20 +597,26 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const dk = deckKey(id);
     const deck = getDeck(get(), id);
 
-    // If selecting a stem and stems aren't loaded yet, trigger separation
-    if (stem && !deck.stemBuffers) {
-      set((s) => ({ [dk]: { ...s[dk], activeStem: stem } }));
+    // Toggle off
+    if (!stem || deck.activeStem === stem) {
+      const wasPlaying = deck.isPlaying;
+      if (wasPlaying) get().pause(id);
+      set((s) => ({ [dk]: { ...s[dk], activeStem: null, stemError: null } }));
+      if (wasPlaying) get().play(id);
+      return;
+    }
+
+    // If stems aren't loaded yet, trigger separation
+    if (!deck.stemBuffers) {
+      set((s) => ({ [dk]: { ...s[dk], activeStem: stem, stemError: null } }));
       get().separateStems(id);
       return;
     }
 
+    // Switch to stem — keep current position
     const wasPlaying = deck.isPlaying;
-    if (wasPlaying) get().stop(id);
-
-    set((s) => ({
-      [dk]: { ...s[dk], activeStem: stem, pauseOffset: s[dk].regionStart },
-    }));
-
+    if (wasPlaying) get().pause(id);
+    set((s) => ({ [dk]: { ...s[dk], activeStem: stem, stemError: null } }));
     if (wasPlaying) get().play(id);
   },
 
@@ -617,7 +625,10 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const deck = getDeck(get(), id);
     if (!deck.sourceFile || deck.isStemLoading) return;
 
-    set((s) => ({ [dk]: { ...s[dk], isStemLoading: true } }));
+    const wasPlaying = deck.isPlaying;
+    if (wasPlaying) get().pause(id);
+
+    set((s) => ({ [dk]: { ...s[dk], isStemLoading: true, stemError: null } }));
 
     try {
       const formData = new FormData();
@@ -629,20 +640,24 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Stem separation failed");
+        let msg = "Stem separation failed";
+        try { const d = await res.json(); msg = d.error || msg; } catch { /* ok */ }
+        throw new Error(msg);
       }
 
       const data = await res.json();
       const ctx = getAudioContext();
 
-      // Decode each stem from base64 to AudioBuffer
+      // Decode base64 audio via Blob + fetch (handles large strings safely)
       const decodeStem = async (b64: string | null): Promise<AudioBuffer | null> => {
         if (!b64) return null;
-        const binary = atob(b64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        return ctx.decodeAudioData(bytes.buffer);
+        const binaryStr = atob(b64);
+        const len = binaryStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
+        // .slice() to get a fresh ArrayBuffer (decodeAudioData detaches it)
+        const ab = bytes.buffer.slice(0);
+        return ctx.decodeAudioData(ab);
       };
 
       const [vocalsBuffer, drumsBuffer, bassBuffer, otherBuffer] = await Promise.all([
@@ -657,15 +672,15 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       const instSources = [drumsBuffer, bassBuffer, otherBuffer].filter(Boolean) as AudioBuffer[];
       if (instSources.length > 0) {
         const maxLen = Math.max(...instSources.map((b) => b.length));
-        const sampleRate = instSources[0].sampleRate;
-        const numCh = instSources[0].numberOfChannels;
-        instrumentalBuffer = ctx.createBuffer(numCh, maxLen, sampleRate);
-        for (let c = 0; c < numCh; c++) {
+        const sr = instSources[0].sampleRate;
+        const ch = instSources[0].numberOfChannels;
+        instrumentalBuffer = ctx.createBuffer(ch, maxLen, sr);
+        for (let c = 0; c < ch; c++) {
           const out = instrumentalBuffer.getChannelData(c);
           for (const src of instSources) {
             if (c < src.numberOfChannels) {
-              const ch = src.getChannelData(c);
-              for (let i = 0; i < ch.length; i++) out[i] += ch[i];
+              const d = src.getChannelData(c);
+              for (let i = 0; i < d.length; i++) out[i] += d[i];
             }
           }
         }
@@ -680,14 +695,14 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         [dk]: { ...s[dk], stemBuffers: stems, isStemLoading: false },
       }));
 
-      // If a stem was already selected, restart playback with it
+      // Restart playback with the selected stem
       const freshDeck = getDeck(get(), id);
-      if (freshDeck.activeStem && freshDeck.isPlaying) {
-        get().stop(id);
+      if (freshDeck.activeStem) {
         get().play(id);
       }
-    } catch {
-      set((s) => ({ [dk]: { ...s[dk], isStemLoading: false } }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Stem separation failed";
+      set((s) => ({ [dk]: { ...s[dk], isStemLoading: false, stemError: msg, activeStem: null } }));
     }
   },
 
