@@ -1114,7 +1114,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6">
-      <div className={`w-full flex flex-col gap-5 ${showDeckB ? "max-w-[1100px]" : "max-w-[600px]"}`}>
+      <div className="w-full max-w-[1100px] flex flex-col gap-5">
         <div className="console flex flex-col gap-5">
           {/* Header */}
           <div className="flex items-center gap-4 px-3 boot-stagger boot-delay-1">
