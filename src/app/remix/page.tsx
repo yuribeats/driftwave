@@ -38,7 +38,7 @@ const detailBtnClass = (active: boolean) =>
 
 const detailBtnStyle: React.CSSProperties = { fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent" };
 
-function Deck({ id }: { id: DeckId }) {
+function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const deck = useRemixStore((s) => (id === "A" ? s.deckA : s.deckB));
   const loadFile = useRemixStore((s) => s.loadFile);
   const loadFromYouTube = useRemixStore((s) => s.loadFromYouTube);
@@ -163,6 +163,15 @@ function Deck({ id }: { id: DeckId }) {
           DECK {id}
         </span>
         <div className="flex items-center gap-2">
+          {onHide && (
+            <button
+              onClick={onHide}
+              className={detailBtnClass(false)}
+              style={detailBtnStyle}
+            >
+              (HIDE)
+            </button>
+          )}
           <div className="led-cutout">
             <div className={`led-rect ${deck.isPlaying ? "led-green-on" : deck.sourceBuffer ? "led-green-on" : "led-green"}`} />
           </div>
@@ -1216,10 +1225,11 @@ export default function RemixPage() {
   const clearPendingExport = useRemixStore((s) => s.clearPendingExport);
   const [manualOpen, setManualOpen] = useState(false);
   const [seqOpen, setSeqOpen] = useState(false);
+  const [showDeckB, setShowDeckB] = useState(true);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-[1100px] flex flex-col gap-5">
+      <div className={`w-full flex flex-col gap-5 ${showDeckB ? "max-w-[1100px]" : "max-w-[600px]"}`}>
         <div className="console flex flex-col gap-5">
           {/* Header */}
           <div className="flex items-center gap-4 px-3 boot-stagger boot-delay-1">
@@ -1259,18 +1269,30 @@ export default function RemixPage() {
             </div>
           )}
 
-          {/* Two decks side by side */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 boot-stagger boot-delay-2">
+          {/* Decks */}
+          <div className={`grid gap-5 boot-stagger boot-delay-2 ${showDeckB ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
             <div className="zone-inset">
               <Deck id="A" />
             </div>
-            <div className="zone-inset">
-              <Deck id="B" />
-            </div>
+            {showDeckB ? (
+              <div className="zone-inset">
+                <Deck id="B" onHide={() => setShowDeckB(false)} />
+              </div>
+            ) : (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowDeckB(true)}
+                  className={detailBtnClass(false)}
+                  style={{ ...detailBtnStyle, fontSize: "10px", padding: "6px 16px" }}
+                >
+                  ADD A SECOND DECK
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Sync start + Lock BPM + Record */}
-          <div className="flex justify-center gap-6 boot-stagger boot-delay-3">
+          {/* Sync start + Lock BPM + Record — only when deck B visible */}
+          {showDeckB && <div className="flex justify-center gap-6 boot-stagger boot-delay-3">
             <div className="flex flex-col items-center">
               <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>REC</span>
               <button
@@ -1324,36 +1346,38 @@ export default function RemixPage() {
                 <div className={`w-1.5 h-1.5 rounded-full border-2 ${bpmLocked ? "border-[var(--accent-gold)]" : "border-[#555]"}`} />
               </button>
             </div>
-          </div>
+          </div>}
 
-          {/* Crossfader */}
-          <div className="zone-inset boot-stagger boot-delay-3">
-            <div className="flex items-center gap-4">
-              <span className="label" style={{ margin: 0, fontSize: "10px", minWidth: "20px" }}>A</span>
-              <div className="flex-1 relative h-[40px] flex items-center">
-                <div
-                  className="absolute inset-y-[14px] left-0 right-0"
-                  style={{
-                    background: "linear-gradient(to right, #0a0a0a, #1a1a1a 30%, #1a1a1a 70%, #0a0a0a)",
-                    borderRadius: "5px",
-                    boxShadow: "inset 2px 2px 6px rgba(0,0,0,0.9), inset -1px -1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.05)",
-                  }}
-                />
-                <input
-                  type="range"
-                  min="-1"
-                  max="1"
-                  step="0.01"
-                  value={crossfader}
-                  onChange={(e) => setCrossfader(parseFloat(e.target.value))}
-                  className="w-full relative z-10"
-                  style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "40px" }}
-                />
+          {/* Crossfader — only when deck B visible */}
+          {showDeckB && (
+            <div className="zone-inset boot-stagger boot-delay-3">
+              <div className="flex items-center gap-4">
+                <span className="label" style={{ margin: 0, fontSize: "10px", minWidth: "20px" }}>A</span>
+                <div className="flex-1 relative h-[40px] flex items-center">
+                  <div
+                    className="absolute inset-y-[14px] left-0 right-0"
+                    style={{
+                      background: "linear-gradient(to right, #0a0a0a, #1a1a1a 30%, #1a1a1a 70%, #0a0a0a)",
+                      borderRadius: "5px",
+                      boxShadow: "inset 2px 2px 6px rgba(0,0,0,0.9), inset -1px -1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.05)",
+                    }}
+                  />
+                  <input
+                    type="range"
+                    min="-1"
+                    max="1"
+                    step="0.01"
+                    value={crossfader}
+                    onChange={(e) => setCrossfader(parseFloat(e.target.value))}
+                    className="w-full relative z-10"
+                    style={{ WebkitAppearance: "none", appearance: "none", background: "transparent", height: "40px" }}
+                  />
+                </div>
+                <span className="label" style={{ margin: 0, fontSize: "10px", minWidth: "20px" }}>B</span>
               </div>
-              <span className="label" style={{ margin: 0, fontSize: "10px", minWidth: "20px" }}>B</span>
+              <div className="label" style={{ fontSize: "12px", marginTop: "4px" }}>CROSSFADER</div>
             </div>
-            <div className="label" style={{ fontSize: "12px", marginTop: "4px" }}>CROSSFADER</div>
-          </div>
+          )}
 
           {/* Master output bus */}
           <div className="zone-inset boot-stagger boot-delay-4">
