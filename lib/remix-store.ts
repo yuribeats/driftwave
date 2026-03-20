@@ -6,7 +6,7 @@ import {
   renderOffline,
   encodeWAV,
 } from "@yuribeats/audio-utils";
-import { decodeFile } from "./file-decoder";
+import { decodeFile, decodeArrayBuffer } from "./file-decoder";
 import { getAudioContext, ensurePitchWorklet, isPitchWorkletReady } from "./audio-context";
 
 /* ─── Saturation curve ─── */
@@ -76,6 +76,7 @@ interface DeckState {
   params: SimpleParams;
   isLoading: boolean;
   isPlaying: boolean;
+  error: string | null;
   nodes: DeckNodes | null;
   startedAt: number;
   pauseOffset: number;
@@ -99,6 +100,7 @@ const defaultDeck = (): DeckState => ({
   params: { ...SIMPLE_DEFAULTS, speed: 0, reverb: 0, tone: 0, saturation: 0, pitch: 0, pitchSpeedLinked: true },
   isLoading: false,
   isPlaying: false,
+  error: null,
   nodes: null,
   startedAt: 0,
   pauseOffset: 0,
@@ -182,6 +184,7 @@ interface RemixStore {
   sequencerPlaying: boolean;
 
   loadFile: (deck: DeckId, file: File) => Promise<void>;
+  loadFromYouTube: (deck: DeckId, url: string) => Promise<void>;
   play: (deck: DeckId) => Promise<void>;
   stop: (deck: DeckId) => void;
   pause: (deck: DeckId) => void;
@@ -475,6 +478,30 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       }));
     } catch {
       set((s) => ({ [dk]: { ...s[dk], isLoading: false } }));
+    }
+  },
+
+  loadFromYouTube: async (id, url) => {
+    const dk = deckKey(id);
+    get().stop(id);
+    set((s) => ({ [dk]: { ...s[dk], isLoading: true, error: null, pauseOffset: 0, calculatedBPM: null, activeStem: null, stemBuffers: null, stemError: null } }));
+    try {
+      const { fetchYouTubeAudio } = await import("./cobalt");
+      const { buffer, title } = await fetchYouTubeAudio(url);
+      const audioBuffer = await decodeArrayBuffer(buffer);
+      set((s) => ({
+        [dk]: {
+          ...s[dk],
+          sourceBuffer: audioBuffer,
+          sourceFilename: title,
+          sourceFile: null,
+          isLoading: false,
+          regionStart: 0,
+          regionEnd: 0,
+        },
+      }));
+    } catch (err) {
+      set((s) => ({ [dk]: { ...s[dk], isLoading: false, error: err instanceof Error ? err.message : "Failed to fetch YouTube audio" } }));
     }
   },
 

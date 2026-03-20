@@ -39,6 +39,7 @@ const detailBtnStyle: React.CSSProperties = { fontFamily: "var(--font-tech)", co
 function Deck({ id }: { id: DeckId }) {
   const deck = useRemixStore((s) => (id === "A" ? s.deckA : s.deckB));
   const loadFile = useRemixStore((s) => s.loadFile);
+  const loadFromYouTube = useRemixStore((s) => s.loadFromYouTube);
   const play = useRemixStore((s) => s.play);
   const stop = useRemixStore((s) => s.stop);
   const pause = useRemixStore((s) => s.pause);
@@ -73,6 +74,7 @@ function Deck({ id }: { id: DeckId }) {
 
   const [bpmInput, setBpmInput] = useState("");
   const [editingBPM, setEditingBPM] = useState(false);
+  const [ytUrl, setYtUrl] = useState("");
 
   const handleSpeed = (v: number) => {
     if (linked) {
@@ -401,6 +403,44 @@ function Deck({ id }: { id: DeckId }) {
           </button>
         </div>
       </div>
+
+      {/* YouTube URL input */}
+      <div className="flex gap-2 items-center">
+        <input
+          type="text"
+          value={ytUrl}
+          onChange={(e) => setYtUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && ytUrl.trim()) {
+              const ctx = getAudioContext();
+              ctx.resume().then(() => loadFromYouTube(id, ytUrl.trim()));
+              setYtUrl("");
+            }
+          }}
+          placeholder="PASTE YOUTUBE URL"
+          disabled={deck.isLoading}
+          className="flex-1 bg-transparent border border-[#333] px-2 py-1 text-[10px] uppercase tracking-wider"
+          style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", outline: "none" }}
+        />
+        <button
+          onClick={() => {
+            if (!ytUrl.trim()) return;
+            const ctx = getAudioContext();
+            ctx.resume().then(() => loadFromYouTube(id, ytUrl.trim()));
+            setYtUrl("");
+          }}
+          disabled={deck.isLoading || !ytUrl.trim()}
+          className="border border-[#333] px-2 py-1 text-[9px] uppercase tracking-wider disabled:opacity-30"
+          style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent" }}
+        >
+          {deck.isLoading ? "LOADING..." : "YT"}
+        </button>
+      </div>
+      {deck.error && (
+        <div className="text-[9px] uppercase tracking-wider" style={{ fontFamily: "var(--font-tech)", color: "#ff4444" }}>
+          {deck.error}
+        </div>
+      )}
 
       {/* Speed / Pitch / Volume */}
       <div className="zone-engraved">
