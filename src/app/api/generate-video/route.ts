@@ -3,11 +3,19 @@ import { execFile } from "child_process";
 import { writeFile, readFile, unlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
+import { PinataSDK } from "pinata";
 
 export const maxDuration = 300;
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ffmpegPath: string = require("ffmpeg-static");
+
+function getPinata() {
+  return new PinataSDK({
+    pinataJwt: process.env.PINATA_JWT!,
+    pinataGateway: process.env.PINATA_GATEWAY!,
+  });
+}
 
 function runFfmpeg(args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -22,6 +30,8 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const audioFile = formData.get("audio") as File | null;
   const imageFile = formData.get("image") as File | null;
+  const artist = (formData.get("artist") as string) || "UNKNOWN";
+  const title = (formData.get("title") as string) || "UNTITLED";
 
   if (!audioFile || !imageFile) {
     return NextResponse.json({ error: "Missing audio or image" }, { status: 400 });
@@ -44,6 +54,7 @@ export async function POST(request: NextRequest) {
       writeFile(imgPath, Buffer.from(imgData)),
     ]);
 
+    console.log("Running ffmpeg...");
     await runFfmpeg([
       "-y",
       "-loop", "1",
@@ -60,20 +71,34 @@ export async function POST(request: NextRequest) {
       outPath,
     ]);
 
+    console.log("FFmpeg done, reading output...");
     const videoData = await readFile(outPath);
+    console.log("Video size:", videoData.length, "bytes");
 
+    // Upload to Pinata instead of returning raw binary (avoids Vercel body size limit)
+    console.log("Uploading to Pinata...");
+    const pinata = getPinata();
+    const videoFile = new File([videoData], `${id}.mp4`, { type: "video/mp4" });
+    const upload = await pinata.upload.public.file(videoFile)
+      .name(`driftwave-export-${id}.mp4`)
+      .keyvalues({
+        type: "driftwave-video",
+        artist: artist,
+        title: title,
+        createdAt: new Date().toISOString(),
+      });
+
+    const videoUrl = `https://${process.env.PINATA_GATEWAY}/files/${upload.cid}`;
+    console.log("Uploaded to Pinata:", videoUrl);
+
+    // Cleanup temp files
     await Promise.all([
       unlink(audioPath).catch(() => {}),
       unlink(imgPath).catch(() => {}),
       unlink(outPath).catch(() => {}),
     ]);
 
-    return new NextResponse(videoData, {
-      headers: {
-        "Content-Type": "video/mp4",
-        "Content-Disposition": `attachment; filename="export.mp4"`,
-      },
-    });
+    return NextResponse.json({ url: videoUrl });
   } catch (e) {
     await Promise.all([
       unlink(audioPath).catch(() => {}),
@@ -81,7 +106,7 @@ export async function POST(request: NextRequest) {
       unlink(outPath).catch(() => {}),
     ]);
 
-    console.error("FFmpeg error:", e);
+    console.error("generate-video error:", e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Video generation failed" },
       { status: 500 }

@@ -30,30 +30,28 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
       const formData = new FormData();
       formData.append("audio", audioBlob, "audio.wav");
       formData.append("image", coverBlob, "cover.png");
+      formData.append("artist", artist.trim());
+      formData.append("title", title.trim());
 
       const res = await fetch("/api/generate-video", {
         method: "POST",
         body: formData,
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "VIDEO GENERATION FAILED");
+        throw new Error(data.error || "VIDEO GENERATION FAILED");
       }
 
-      // Step 3: Download the video
+      // Step 3: Download via Pinata URL
       setStatus("DOWNLOADING...");
-      const videoBlob = await res.blob();
-      const filename = `${defaultFilename}.mp4`;
-
-      const url = URL.createObjectURL(videoBlob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
+      a.href = data.url;
+      a.download = `${defaultFilename}.mp4`;
+      a.target = "_blank";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
 
       setStatus("DONE");
       setTimeout(() => onClose(), 2000);

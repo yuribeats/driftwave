@@ -479,6 +479,8 @@ export default function WaveformDisplay({
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (!audioBuffer) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomIn(); }
       if (e.key === "-" || e.key === "_") { e.preventDefault(); zoomOut(); }
       if (e.key === "f" || e.key === "F") { e.preventDefault(); zoomToRegion(); }

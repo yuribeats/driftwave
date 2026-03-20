@@ -8,6 +8,7 @@ import WaveformDisplay from "../../../components/WaveformDisplay";
 import PianoKeyboard from "../../../components/PianoKeyboard";
 import Toast from "../../../components/Toast";
 import ExportVideoModalRemix from "../../../components/ExportVideoModalRemix";
+import Link from "next/link";
 
 type DeckId = "A" | "B";
 
@@ -1208,8 +1209,6 @@ export default function RemixPage() {
   const deckB = useRemixStore((s) => s.deckB);
   const lockBPM = useRemixStore((s) => s.lockBPM);
   const bpmLocked = useRemixStore((s) => s.bpmLocked);
-  const download = useRemixStore((s) => s.download);
-  const isExporting = useRemixStore((s) => s.isExporting);
   const recordArmed = useRemixStore((s) => s.recordArmed);
   const isRecording = useRemixStore((s) => s.isRecording);
   const armRecord = useRemixStore((s) => s.armRecord);
@@ -1234,20 +1233,14 @@ export default function RemixPage() {
               REMIX
             </span>
             <div className="ml-auto flex items-center gap-2">
+              <Link href="/" className={detailBtnClass(false)} style={detailBtnStyle}>MAIN</Link>
+              <Link href="/gallery" className={detailBtnClass(false)} style={detailBtnStyle}>GALLERY</Link>
               <button
                 onClick={() => setSeqOpen(!seqOpen)}
                 className={detailBtnClass(seqOpen)}
                 style={detailBtnStyle}
               >
                 SEQ
-              </button>
-              <button
-                onClick={() => download()}
-                disabled={isExporting || (!deckA.sourceBuffer && !deckB.sourceBuffer)}
-                className={detailBtnClass(isExporting)}
-                style={{ ...detailBtnStyle, opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.4 : 1 }}
-              >
-                {isExporting ? "WAIT" : "EXPORT"}
               </button>
               <button
                 onClick={() => setManualOpen(true)}
