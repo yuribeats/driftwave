@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { generateCover } from "../lib/cover-generator";
 
 interface Props {
@@ -10,12 +10,10 @@ interface Props {
 }
 
 async function uploadToPinata(blob: Blob, filename: string): Promise<string> {
-  // Get signed upload URL from our server
   const urlRes = await fetch("/api/pinata-upload-url", { method: "POST" });
   if (!urlRes.ok) throw new Error("Failed to get upload URL");
   const { url } = await urlRes.json();
 
-  // Upload directly to Pinata using signed URL
   const formData = new FormData();
   formData.append("file", blob, filename);
 
@@ -38,6 +36,17 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [customImage, setCustomImage] = useState<string | null>(null);
+  const [customImageName, setCustomImageName] = useState("");
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setCustomImage(url);
+    setCustomImageName(file.name);
+  };
 
   const handleExport = async () => {
     if (!artist.trim() || !title.trim()) return;
@@ -45,26 +54,16 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
     setExporting(true);
 
     try {
-      // Step 1: Generate cover image
       setStatus("GENERATING COVER...");
-      console.log("[EXPORT] Generating cover...");
-      const coverBlob = await generateCover(artist.trim(), title.trim());
-      console.log("[EXPORT] Cover:", coverBlob.size, "bytes");
+      const coverBlob = await generateCover(artist.trim(), title.trim(), customImage || undefined);
 
-      // Step 2: Upload audio and image to Pinata directly
       setStatus("UPLOADING AUDIO...");
-      console.log("[EXPORT] Uploading audio:", audioBlob.size, "bytes");
       const audioCid = await uploadToPinata(audioBlob, "audio.wav");
-      console.log("[EXPORT] Audio CID:", audioCid);
 
       setStatus("UPLOADING COVER...");
-      console.log("[EXPORT] Uploading cover...");
       const imageCid = await uploadToPinata(coverBlob, "cover.png");
-      console.log("[EXPORT] Image CID:", imageCid);
 
-      // Step 3: Generate video (server downloads from Pinata, runs ffmpeg)
       setStatus("GENERATING VIDEO...");
-      console.log("[EXPORT] Generating video...");
       const res = await fetch("/api/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -77,13 +76,11 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
       });
 
       const text = await res.text();
-      console.log("[EXPORT] Response:", res.status, text.substring(0, 200));
       if (!res.ok) {
         throw new Error(`SERVER ${res.status}: ${text.substring(0, 100)}`);
       }
       const data = JSON.parse(text);
 
-      // Step 4: Download
       setStatus("DOWNLOADING...");
       const a = document.createElement("a");
       a.href = data.url;
@@ -157,6 +154,30 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
           />
         </div>
 
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}>
+            COVER IMAGE (OPTIONAL)
+          </span>
+          <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            disabled={exporting}
+            className="bg-transparent border border-[#333] px-3 py-2 text-[11px] uppercase tracking-wider text-left"
+            style={{ fontFamily: "var(--font-tech)", color: customImage ? "var(--accent-gold)" : "var(--text-dark)", outline: "none" }}
+          >
+            {customImage ? customImageName.toUpperCase() : "RANDOM (CLICK TO UPLOAD)"}
+          </button>
+          {customImage && (
+            <button
+              onClick={() => { setCustomImage(null); setCustomImageName(""); }}
+              className="text-[9px] uppercase tracking-wider self-start"
+              style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", opacity: 0.5, background: "transparent", border: "none", padding: 0 }}
+            >
+              CLEAR
+            </button>
+          )}
+        </div>
+
         <button
           onClick={handleExport}
           disabled={exporting || !artist.trim() || !title.trim()}
@@ -173,7 +194,7 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
         )}
 
         <div className="text-[9px] uppercase tracking-wider" style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}>
-          GENERATES A VIDEO WITH YOUR RECORDED MIX + RANDOM COVER ART
+          GENERATES A VIDEO WITH YOUR MIX + COVER ART
         </div>
       </div>
     </div>

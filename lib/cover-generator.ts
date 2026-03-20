@@ -10,7 +10,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 export async function generateCover(
   artist: string,
-  title: string
+  title: string,
+  customImageUrl?: string
 ): Promise<Blob> {
   const SIZE = 1080;
   const PADDING = 60;
@@ -52,7 +53,7 @@ export async function generateCover(
   const imageHeight = SIZE - PADDING * 2 - TEXT_HEIGHT * 2 - GAP * 2;
 
   try {
-    const img = await loadImage("/api/random-image");
+    const img = await loadImage(customImageUrl || "/api/random-image");
     const imgAspect = img.width / img.height;
     const boxAspect = textWidth / imageHeight;
 
