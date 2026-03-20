@@ -1197,7 +1197,7 @@ function Manual({ onClose }: { onClose: () => void }) {
             <div>ARM THE REC BUTTON (APPEARS WITH BOTH DECKS). RECORDING STARTS ON SYNC START AND CAPTURES THE LIVE MIX. WHEN DECK A STOPS, THE RECORDING ENDS AND THE MP4 EXPORT MODAL OPENS AUTOMATICALLY.</div>
           </div>
           <div>
-            <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>MP4 EXPORT</div>
+            <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>EXPORT</div>
             <div>ENTER ARTIST AND TITLE. THE VIDEO IS GENERATED WITH RANDOM COVER ART AND STORED ON PINATA. DOWNLOADS AUTOMATICALLY.</div>
           </div>
           <div>

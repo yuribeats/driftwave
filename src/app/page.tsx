@@ -1038,8 +1038,8 @@ function Manual({ onClose }: { onClose: () => void }) {
             <div>ARM THE REC BUTTON (APPEARS WITH BOTH DECKS). RECORDING STARTS ON SYNC START AND CAPTURES THE LIVE MIX. WHEN DECK A STOPS, THE RECORDING ENDS AND THE MP4 EXPORT MODAL OPENS AUTOMATICALLY.</div>
           </div>
           <div>
-            <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>MP4 EXPORT</div>
-            <div>HIT MP4 IN THE HEADER TO RENDER DECK A&apos;S AUDIO WITH ALL EFFECTS APPLIED. ENTER ARTIST AND TITLE. THE VIDEO IS GENERATED WITH RANDOM COVER ART AND STORED ON PINATA. DOWNLOADS AUTOMATICALLY.</div>
+            <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>EXPORT</div>
+            <div>HIT EXPORT IN THE HEADER TO RENDER DECK A&apos;S AUDIO WITH ALL EFFECTS APPLIED. ENTER ARTIST AND TITLE. THE VIDEO IS GENERATED WITH RANDOM COVER ART AND STORED ON PINATA. DOWNLOADS AUTOMATICALLY.</div>
           </div>
           <div>
             <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>GALLERY</div>
@@ -1170,9 +1170,9 @@ export default function Home() {
                 onClick={handleMP4}
                 disabled={!deckA.sourceBuffer || renderingMp4}
                 className={detailBtnClass(false)}
-                style={{ ...detailBtnStyle, opacity: !deckA.sourceBuffer ? 0.4 : 1, color: mp4Error ? "#c82828" : "var(--text-dark)" }}
+                style={{ ...detailBtnStyle, opacity: !deckA.sourceBuffer ? 0.4 : 1, color: mp4Error ? "#c82828" : "var(--accent-gold)", borderColor: mp4Error ? "#c82828" : "var(--accent-gold)" }}
               >
-                {renderingMp4 ? "RENDERING..." : mp4Error ? mp4Error : "MP4"}
+                {renderingMp4 ? "RENDERING..." : mp4Error ? mp4Error : "EXPORT"}
               </button>
               <button
                 onClick={() => setManualOpen(true)}
