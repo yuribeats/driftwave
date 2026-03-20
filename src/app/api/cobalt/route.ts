@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 
-  // 1. RapidAPI (paid, reliable)
+  // 1. RapidAPI — returns JSON with redirect URL (browser downloads directly)
   if (process.env.RAPIDAPI_KEY) {
     try {
       const result = await withTimeout(tryRapidApi(url), TIMEOUT, "RapidAPI");
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     } catch { /* next */ }
   }
 
-  // 2. Cobalt (free fallback)
+  // 2. Cobalt — returns audio buffer directly
   for (const instance of COBALT_INSTANCES) {
     try {
       const result = await withTimeout(tryCobalt(instance, url), TIMEOUT, instance);
@@ -70,20 +70,11 @@ async function tryRapidApi(url: string): Promise<NextResponse | null> {
   const data = await res.json();
   if (data.status !== "ok" || !data.link) return null;
 
-  const audioRes = await fetch(data.link, {
-    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-  });
-  if (!audioRes.ok) return null;
-
-  const buffer = await audioRes.arrayBuffer();
   const title = (data.title || "youtube-audio").replace(/[^\w\s-]/g, "").trim().substring(0, 80);
 
-  return new NextResponse(buffer, {
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Content-Disposition": `attachment; filename="audio.mp3"`,
-      "X-Audio-Title": title,
-    },
+  // Return JSON with redirect URL — frontend fetches audio from this URL directly
+  return NextResponse.json({ redirectUrl: data.link, title }, {
+    headers: { "X-Audio-Title": title },
   });
 }
 
