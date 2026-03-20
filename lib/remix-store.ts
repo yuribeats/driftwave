@@ -176,6 +176,8 @@ interface RemixStore {
   isExporting: boolean;
   recordArmed: boolean;
   isRecording: boolean;
+  pendingVideoExport: Blob | null;
+  clearPendingExport: () => void;
 
   // Sequencer
   sequencerOpen: boolean;
@@ -455,6 +457,8 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   isExporting: false,
   recordArmed: false,
   isRecording: false,
+  pendingVideoExport: null,
+  clearPendingExport: () => set({ pendingVideoExport: null }),
   sequencerOpen: false,
   sequencerTracksA: [],
   sequencerTracksB: [],
@@ -1261,19 +1265,9 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         }
 
         const wavBlob = encodeWAV(decoded);
-        const { deckA, deckB } = get();
-        const nameA = deckA.sourceFilename || "deck-a";
-        const nameB = deckB.sourceFilename || "deck-b";
-        const filename = `${nameA}-x-${nameB}-live.wav`;
 
-        const url = URL.createObjectURL(wavBlob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = filename;
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        URL.revokeObjectURL(url);
+        // Open MP4 export modal with the recorded audio
+        set({ isRecording: false, pendingVideoExport: wavBlob });
       } catch {
         // Fallback: download raw webm if WAV conversion fails
         const url = URL.createObjectURL(blob);
@@ -1284,9 +1278,8 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         anchor.click();
         document.body.removeChild(anchor);
         URL.revokeObjectURL(url);
+        set({ isRecording: false });
       }
-
-      set({ isRecording: false });
     };
 
     liveRecorder.stop();

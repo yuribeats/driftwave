@@ -7,6 +7,7 @@ import { getAudioContext } from "../../../lib/audio-context";
 import WaveformDisplay from "../../../components/WaveformDisplay";
 import PianoKeyboard from "../../../components/PianoKeyboard";
 import Toast from "../../../components/Toast";
+import ExportVideoModalRemix from "../../../components/ExportVideoModalRemix";
 
 type DeckId = "A" | "B";
 
@@ -1212,6 +1213,8 @@ export default function RemixPage() {
   const recordArmed = useRemixStore((s) => s.recordArmed);
   const isRecording = useRemixStore((s) => s.isRecording);
   const armRecord = useRemixStore((s) => s.armRecord);
+  const pendingVideoExport = useRemixStore((s) => s.pendingVideoExport);
+  const clearPendingExport = useRemixStore((s) => s.clearPendingExport);
   const [manualOpen, setManualOpen] = useState(false);
   const [seqOpen, setSeqOpen] = useState(false);
 
@@ -1368,6 +1371,13 @@ export default function RemixPage() {
         <Toast />
       </div>
       {manualOpen && <Manual onClose={() => setManualOpen(false)} />}
+      {pendingVideoExport && (
+        <ExportVideoModalRemix
+          audioBlob={pendingVideoExport}
+          defaultFilename={`${deckA.sourceFilename || "deck-a"}-x-${deckB.sourceFilename || "deck-b"}-live`}
+          onClose={clearPendingExport}
+        />
+      )}
     </main>
   );
 }
