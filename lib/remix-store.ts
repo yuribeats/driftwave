@@ -192,7 +192,7 @@ interface RemixStore {
 
   loadFile: (deck: DeckId, file: File) => Promise<void>;
   loadFromYouTube: (deck: DeckId, url: string) => Promise<void>;
-  play: (deck: DeckId) => Promise<void>;
+  play: (deck: DeckId, forceLoop?: boolean) => Promise<void>;
   stop: (deck: DeckId) => void;
   pause: (deck: DeckId) => void;
   setParam: (deck: DeckId, key: keyof SimpleParams, value: number | boolean) => void;
@@ -563,7 +563,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     }
   },
 
-  play: async (id) => {
+  play: async (id, forceLoop) => {
     const key = deckKey(id);
     const deck = getDeck(get(), id);
     if (!deck.sourceBuffer) return;
@@ -595,6 +595,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const rStart = freshDeck.regionStart;
     const rEnd = freshDeck.regionEnd > 0 ? freshDeck.regionEnd : playBuffer.duration;
     const hasRegion = rStart > 0 || (freshDeck.regionEnd > 0 && freshDeck.regionEnd < playBuffer.duration);
+    const shouldLoop = hasRegion || !!forceLoop;
     const playOffset = freshDeck.pauseOffset >= rStart ? freshDeck.pauseOffset : rStart;
     const remaining = rEnd - playOffset;
     const playDuration = remaining > 0 ? remaining : undefined;
@@ -604,7 +605,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       playBuffer,
       freshDeck.params,
       playOffset,
-      hasRegion ? undefined : playDuration,
+      shouldLoop ? undefined : playDuration,
       freshDeck.volume,
       cfGain,
       () => {
@@ -615,7 +616,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           [key]: { ...s[key], isPlaying: false, nodes: null, pauseOffset: rStart },
         }));
       },
-      hasRegion ? { loopStart: rStart, loopEnd: rEnd } : undefined
+      shouldLoop ? { loopStart: rStart, loopEnd: rEnd } : undefined
     );
 
     set((s) => ({
@@ -832,8 +833,10 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
     // Start both — play() is async but the actual source.start() inside
     // happens on the same AudioContext so they'll be sample-aligned
-    if (hasA) get().play("A");
-    if (hasB) get().play("B");
+    // Force looping when recording so both tracks play for the full duration
+    const loop = get().isRecording;
+    if (hasA) get().play("A", loop);
+    if (hasB) get().play("B", loop);
   },
 
   calculateBPMFromLoop: (id) => {
@@ -1288,6 +1291,10 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       set({ isRecording: false });
       return;
     }
+
+    // Stop both decks
+    get().stop("A");
+    get().stop("B");
 
     liveRecorder.onstop = () => {
       const blob = new Blob(recordedChunks, { type: recordedChunks[0]?.type || "audio/webm" });
