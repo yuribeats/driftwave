@@ -70,8 +70,14 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
+      const text = await res.text();
+      let data: { url?: string; error?: string };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(text.substring(0, 100) || `SERVER ${res.status}`);
+      }
+      if (!res.ok || !data.url) {
         throw new Error(data.error || `SERVER ${res.status}`);
       }
 

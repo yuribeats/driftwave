@@ -101,8 +101,14 @@ export default function ExportVideoModal({ onClose }: { onClose: () => void }) {
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
+      const resText = await res.text();
+      let data: { url?: string; error?: string };
+      try {
+        data = JSON.parse(resText);
+      } catch {
+        throw new Error(resText.substring(0, 100) || `SERVER ${res.status}`);
+      }
+      if (!res.ok || !data.url) {
         throw new Error(data.error || "VIDEO GENERATION FAILED");
       }
 

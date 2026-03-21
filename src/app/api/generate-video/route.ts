@@ -27,7 +27,14 @@ function runFfmpeg(args: string[]): Promise<{ stdout: string; stderr: string }> 
 }
 
 export async function POST(request: NextRequest) {
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to parse request";
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
   const audioCid = formData.get("audioCid") as string | null;
   const imageFile = formData.get("image") as File | null;
   const artist = (formData.get("artist") as string) || "UNKNOWN";
