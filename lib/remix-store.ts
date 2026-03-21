@@ -176,8 +176,13 @@ interface RemixStore {
   isExporting: boolean;
   recordArmed: boolean;
   isRecording: boolean;
+  isConvertingWav: boolean;
+  pendingRecording: Blob | null;
   pendingVideoExport: Blob | null;
+  clearPendingRecording: () => void;
   clearPendingExport: () => void;
+  downloadRecordingWAV: () => Promise<void>;
+  exportRecordingMP4: () => void;
 
   // Sequencer
   sequencerOpen: boolean;
@@ -457,8 +462,57 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   isExporting: false,
   recordArmed: false,
   isRecording: false,
+  isConvertingWav: false,
+  pendingRecording: null,
   pendingVideoExport: null,
+  clearPendingRecording: () => set({ pendingRecording: null }),
   clearPendingExport: () => set({ pendingVideoExport: null }),
+
+  downloadRecordingWAV: async () => {
+    const { pendingRecording } = get();
+    if (!pendingRecording) return;
+    set({ isConvertingWav: true });
+    try {
+      const arrayBuf = await pendingRecording.arrayBuffer();
+      const ctx = getAudioContext();
+      const decoded = await ctx.decodeAudioData(arrayBuf);
+      // Normalize if clipping
+      let peak = 0;
+      for (let c = 0; c < decoded.numberOfChannels; c++) {
+        const ch = decoded.getChannelData(c);
+        for (let i = 0; i < ch.length; i++) {
+          const abs = Math.abs(ch[i]);
+          if (abs > peak) peak = abs;
+        }
+      }
+      if (peak > 1) {
+        const scale = 0.99 / peak;
+        for (let c = 0; c < decoded.numberOfChannels; c++) {
+          const ch = decoded.getChannelData(c);
+          for (let i = 0; i < ch.length; i++) ch[i] *= scale;
+        }
+      }
+      const wavBlob = encodeWAV(decoded);
+      const url = URL.createObjectURL(wavBlob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "driftwave-recording.wav";
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("WAV conversion failed:", e);
+    } finally {
+      set({ isConvertingWav: false });
+    }
+  },
+
+  exportRecordingMP4: () => {
+    const { pendingRecording } = get();
+    if (!pendingRecording) return;
+    set({ pendingVideoExport: pendingRecording, pendingRecording: null });
+  },
   sequencerOpen: false,
   sequencerTracksA: [],
   sequencerTracksB: [],
@@ -1235,50 +1289,11 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       return;
     }
 
-    liveRecorder.onstop = async () => {
+    liveRecorder.onstop = () => {
       const blob = new Blob(recordedChunks, { type: recordedChunks[0]?.type || "audio/webm" });
       recordedChunks = [];
       liveRecorder = null;
-
-      // Decode the recorded blob to AudioBuffer, then re-encode as WAV
-      try {
-        const arrayBuf = await blob.arrayBuffer();
-        const ctx = getAudioContext();
-        const decoded = await ctx.decodeAudioData(arrayBuf);
-
-        // Normalize
-        let peak = 0;
-        for (let c = 0; c < decoded.numberOfChannels; c++) {
-          const ch = decoded.getChannelData(c);
-          for (let i = 0; i < ch.length; i++) {
-            const abs = Math.abs(ch[i]);
-            if (abs > peak) peak = abs;
-          }
-        }
-        if (peak > 1) {
-          const scale = 0.99 / peak;
-          for (let c = 0; c < decoded.numberOfChannels; c++) {
-            const ch = decoded.getChannelData(c);
-            for (let i = 0; i < ch.length; i++) ch[i] *= scale;
-          }
-        }
-
-        const wavBlob = encodeWAV(decoded);
-
-        // Open MP4 export modal with the recorded audio
-        set({ isRecording: false, pendingVideoExport: wavBlob });
-      } catch {
-        // Fallback: download raw webm if WAV conversion fails
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "live-recording.webm";
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        URL.revokeObjectURL(url);
-        set({ isRecording: false });
-      }
+      set({ isRecording: false, pendingRecording: blob });
     };
 
     liveRecorder.stop();

@@ -76,10 +76,22 @@ export default function ExportVideoModal({ onClose }: { onClose: () => void }) {
       const normalized = normalizeBuffer(buf);
       const audioBlob = encodeWAV(normalized);
 
-      // Step 3: Send to generate-video API
+      // Step 3: Upload audio to Pinata
+      setStatus("UPLOADING AUDIO...");
+      const urlRes = await fetch("/api/pinata-upload-url", { method: "POST" });
+      if (!urlRes.ok) throw new Error("FAILED TO GET UPLOAD URL");
+      const { url: uploadUrl } = await urlRes.json();
+      const uploadForm = new FormData();
+      uploadForm.append("file", audioBlob, "audio.wav");
+      const uploadRes = await fetch(uploadUrl, { method: "POST", body: uploadForm });
+      if (!uploadRes.ok) throw new Error("AUDIO UPLOAD FAILED");
+      const uploadData = await uploadRes.json();
+      const audioCid = uploadData.data?.cid || uploadData.cid;
+
+      // Step 4: Send CID + cover to generate-video API
       setStatus("GENERATING VIDEO...");
       const formData = new FormData();
-      formData.append("audio", audioBlob, "audio.wav");
+      formData.append("audioCid", audioCid);
       formData.append("image", coverBlob, "cover.png");
       formData.append("artist", artist.trim());
       formData.append("title", title.trim());

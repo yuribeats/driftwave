@@ -9,6 +9,24 @@ interface Props {
   onClose: () => void;
 }
 
+async function uploadToPinata(blob: Blob, filename: string): Promise<string> {
+  const urlRes = await fetch("/api/pinata-upload-url", { method: "POST" });
+  if (!urlRes.ok) throw new Error("Failed to get upload URL");
+  const { url } = await urlRes.json();
+
+  const formData = new FormData();
+  formData.append("file", blob, filename);
+
+  const uploadRes = await fetch(url, { method: "POST", body: formData });
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text();
+    throw new Error(`Upload failed: ${uploadRes.status} ${text.substring(0, 100)}`);
+  }
+
+  const data = await uploadRes.json();
+  return data.data?.cid || data.cid;
+}
+
 export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onClose }: Props) {
   const [artist, setArtist] = useState("");
   const [title, setTitle] = useState("");
@@ -31,14 +49,18 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
     setExporting(true);
 
     try {
-      // Step 1: Generate cover
+      // Upload audio to Pinata (bypasses body size limit)
+      setStatus("UPLOADING AUDIO...");
+      const audioCid = await uploadToPinata(audioBlob, "audio.webm");
+
+      // Generate cover image
       setStatus("GENERATING COVER...");
       const coverBlob = await generateCover(artist.trim(), title.trim(), customImage || undefined);
 
-      // Step 2: Send audio + cover directly to generate-video
+      // Send CID + cover to generate-video
       setStatus("GENERATING VIDEO...");
       const formData = new FormData();
-      formData.append("audio", audioBlob, "audio.wav");
+      formData.append("audioCid", audioCid);
       formData.append("image", coverBlob, "cover.png");
       formData.append("artist", artist.trim());
       formData.append("title", title.trim());
@@ -53,7 +75,7 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
         throw new Error(data.error || `SERVER ${res.status}`);
       }
 
-      // Step 3: Download
+      // Download
       setStatus("DOWNLOADING...");
       const a = document.createElement("a");
       a.href = data.url;

@@ -28,16 +28,16 @@ function runFfmpeg(args: string[]): Promise<{ stdout: string; stderr: string }> 
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
-  const audioFile = formData.get("audio") as File | null;
+  const audioCid = formData.get("audioCid") as string | null;
   const imageFile = formData.get("image") as File | null;
   const artist = (formData.get("artist") as string) || "UNKNOWN";
   const title = (formData.get("title") as string) || "UNTITLED";
 
-  if (!audioFile || !imageFile) {
-    return NextResponse.json(
-      { error: `Missing ${!audioFile ? "audio" : "image"} file` },
-      { status: 400 }
-    );
+  if (!audioCid) {
+    return NextResponse.json({ error: "Missing audioCid" }, { status: 400 });
+  }
+  if (!imageFile) {
+    return NextResponse.json({ error: "Missing cover image" }, { status: 400 });
   }
 
   const gateway = process.env.PINATA_GATEWAY!;
@@ -48,12 +48,15 @@ export async function POST(request: NextRequest) {
   const outPath = join(tmp, `${id}-output.mp4`);
 
   try {
-    // Write uploaded files to disk
-    const [audioData, imgData] = await Promise.all([
-      audioFile.arrayBuffer(),
+    // Download audio from Pinata, write cover directly
+    console.log("Downloading audio from Pinata...");
+    const [audioRes, imgData] = await Promise.all([
+      fetch(`https://${gateway}/files/${audioCid}`),
       imageFile.arrayBuffer(),
     ]);
 
+    if (!audioRes.ok) throw new Error(`Failed to download audio: ${audioRes.status}`);
+    const audioData = await audioRes.arrayBuffer();
     console.log("Audio size:", audioData.byteLength, "Image size:", imgData.byteLength);
 
     await Promise.all([
@@ -99,7 +102,7 @@ export async function POST(request: NextRequest) {
     const videoUrl = `https://${gateway}/files/${upload.cid}`;
     console.log("Uploaded to Pinata:", videoUrl);
 
-    // Cleanup temp files
+    // Cleanup
     await Promise.all([
       unlink(audioPath).catch(() => {}),
       unlink(imgPath).catch(() => {}),
