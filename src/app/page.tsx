@@ -8,6 +8,7 @@ import WaveformDisplay from "../../components/WaveformDisplay";
 import PianoKeyboard from "../../components/PianoKeyboard";
 import Toast from "../../components/Toast";
 import ExportVideoModalRemix from "../../components/ExportVideoModalRemix";
+import VolumeAutomation from "../../components/VolumeAutomation";
 import Link from "next/link";
 
 type DeckId = "A" | "B";
@@ -55,6 +56,10 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const calculateBPMFromLoop = useRemixStore((s) => s.calculateBPMFromLoop);
   const addLoopToBank = useRemixStore((s) => s.addLoopToBank);
   const removeFromBank = useRemixStore((s) => s.removeFromBank);
+  const toggleAutomation = useRemixStore((s) => s.toggleAutomation);
+  const addAutomationPoint = useRemixStore((s) => s.addAutomationPoint);
+  const removeAutomationPoint = useRemixStore((s) => s.removeAutomationPoint);
+  const moveAutomationPoint = useRemixStore((s) => s.moveAutomationPoint);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [stepMode, setStepMode] = useState(true);
@@ -228,6 +233,21 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
         onSeek={(pos) => seek(id, pos)}
         onScrub={(pos) => scrub(id, pos)}
       />
+
+      {/* Volume automation lane */}
+      {deck.sourceBuffer && (
+        <VolumeAutomation
+          enabled={deck.automationEnabled}
+          points={deck.automationPoints}
+          duration={deck.sourceBuffer.duration}
+          regionStart={deck.regionStart}
+          regionEnd={deck.regionEnd}
+          onToggle={() => toggleAutomation(id)}
+          onAddPoint={(t, v) => addAutomationPoint(id, t, v)}
+          onRemovePoint={(i) => removeAutomationPoint(id, i)}
+          onMovePoint={(i, t, v) => moveAutomationPoint(id, i, t, v)}
+        />
+      )}
 
       {/* Loop IN/OUT nudge controls */}
       {deck.sourceBuffer && (deck.regionStart > 0 || deck.regionEnd > 0) && (() => {

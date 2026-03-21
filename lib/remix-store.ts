@@ -34,6 +34,20 @@ function generateIR(ctx: AudioContext, duration: number, decay: number): AudioBu
   return ir;
 }
 
+/* ─── Automation interpolation ─── */
+function getAutomationValue(points: AutomationPoint[], time: number): number {
+  if (points.length === 0) return 1;
+  if (time <= points[0].time) return points[0].value;
+  if (time >= points[points.length - 1].time) return points[points.length - 1].value;
+  for (let i = 0; i < points.length - 1; i++) {
+    if (time >= points[i].time && time <= points[i + 1].time) {
+      const t = (time - points[i].time) / (points[i + 1].time - points[i].time);
+      return points[i].value + t * (points[i + 1].value - points[i].value);
+    }
+  }
+  return 1;
+}
+
 /* ─── Crossfader math: center = both full, edges = one cuts ─── */
 function getCrossfaderGains(cf: number): { a: number; b: number } {
   return {
@@ -69,6 +83,11 @@ interface BankedLoop {
   end: number;
 }
 
+interface AutomationPoint {
+  time: number;   // seconds into source buffer
+  value: number;  // 0–1 volume
+}
+
 interface DeckState {
   sourceBuffer: AudioBuffer | null;
   sourceFilename: string | null;
@@ -89,6 +108,8 @@ interface DeckState {
   stemBuffers: Partial<Record<StemType, AudioBuffer>> | null;
   isStemLoading: boolean;
   loopBank: BankedLoop[];
+  automationEnabled: boolean;
+  automationPoints: AutomationPoint[];
 }
 
 type DeckId = "A" | "B";
@@ -113,6 +134,8 @@ const defaultDeck = (): DeckState => ({
   stemBuffers: null,
   isStemLoading: false,
   loopBank: [],
+  automationEnabled: false,
+  automationPoints: [],
 });
 
 interface MasterBusParams {
@@ -221,6 +244,10 @@ interface RemixStore {
   exportMP4: () => Promise<void>;
   armRecord: () => void;
   stopRecording: () => void;
+  toggleAutomation: (deck: DeckId) => void;
+  addAutomationPoint: (deck: DeckId, time: number, value: number) => void;
+  removeAutomationPoint: (deck: DeckId, index: number) => void;
+  moveAutomationPoint: (deck: DeckId, index: number, time: number, value: number) => void;
 }
 
 /* ─── Shared output bus: merger → EQ → compressor → makeup → limiter → destination ─── */
@@ -312,7 +339,8 @@ function buildDeckGraph(
   volume: number,
   crossfaderGain: number,
   onEnded: () => void,
-  loopRegion?: { loopStart: number; loopEnd: number }
+  loopRegion?: { loopStart: number; loopEnd: number },
+  automationPoints?: AutomationPoint[],
 ): DeckNodes {
   const expanded = expandParams(params);
 
@@ -382,6 +410,22 @@ function buildDeckGraph(
   const deckGain = ctx.createGain();
   deckGain.gain.value = volume * crossfaderGain;
 
+  // Automation gain (separate node so volume fader still works independently)
+  const autoGain = ctx.createGain();
+  if (automationPoints && automationPoints.length > 0) {
+    const rate = expanded.rate;
+    const now = ctx.currentTime;
+    // Set initial value
+    const autoVal = getAutomationValue(automationPoints, offset);
+    autoGain.gain.setValueAtTime(autoVal, now);
+    // Schedule ramps for each automation point that's after the current offset
+    for (const pt of automationPoints) {
+      if (pt.time <= offset) continue;
+      const when = now + (pt.time - offset) / rate;
+      autoGain.gain.linearRampToValueAtTime(pt.value, when);
+    }
+  }
+
   // Pitch shifter worklet (unlinked mode only)
   let pitchShifter: AudioWorkletNode | null = null;
   if (!expanded.pitchSpeedLinked && isPitchWorkletReady()) {
@@ -415,7 +459,8 @@ function buildDeckGraph(
   wetGain.connect(reverbMerger);
 
   reverbMerger.connect(analyser);
-  analyser.connect(deckGain);
+  analyser.connect(autoGain);
+  autoGain.connect(deckGain);
   deckGain.connect(getSharedMerger());
 
   source.onended = onEnded;
@@ -454,7 +499,17 @@ async function renderMixToWAV(get: () => RemixStore): Promise<Blob | null> {
   if (!hasA && !hasB) return null;
 
   const cfGains = getCrossfaderGains(crossfader);
-  const renders: { data: Float32Array[]; gain: number; sr: number; nch: number }[] = [];
+  interface RenderResult {
+    data: Float32Array[];
+    gain: number;
+    sr: number;
+    nch: number;
+    autoPoints: AutomationPoint[];
+    rStart: number;
+    rEnd: number;
+    rate: number;
+  }
+  const renders: RenderResult[] = [];
 
   for (const [deck, cfGain] of [
     [deckA, cfGains.a],
@@ -478,6 +533,10 @@ async function renderMixToWAV(get: () => RemixStore): Promise<Blob | null> {
       gain: deck.volume * cfGain,
       sr: result.sampleRate,
       nch: result.numberOfChannels,
+      autoPoints: deck.automationEnabled ? deck.automationPoints : [],
+      rStart,
+      rEnd,
+      rate: expanded.rate,
     });
   }
 
@@ -487,14 +546,22 @@ async function renderMixToWAV(get: () => RemixStore): Promise<Blob | null> {
   const nch = Math.max(...renders.map((r) => r.nch));
   const maxLen = Math.max(...renders.map((r) => r.data[0].length));
 
-  // Mix all renders together
+  // Mix all renders together (with automation applied per-sample)
   const mixed: Float32Array[] = [];
   for (let c = 0; c < nch; c++) mixed.push(new Float32Array(maxLen));
   for (const r of renders) {
+    const hasAuto = r.autoPoints.length > 0;
     for (let c = 0; c < nch; c++) {
       const ch = c < r.data.length ? r.data[c] : r.data[0];
       for (let i = 0; i < ch.length; i++) {
-        mixed[c][i] += ch[i] * r.gain;
+        let autoVal = 1;
+        if (hasAuto) {
+          // Map sample index back to source buffer time
+          const realTime = i / r.sr;
+          const sourceTime = r.rStart + realTime * r.rate;
+          autoVal = getAutomationValue(r.autoPoints, sourceTime);
+        }
+        mixed[c][i] += ch[i] * r.gain * autoVal;
       }
     }
   }
@@ -735,7 +802,8 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           [key]: { ...s[key], isPlaying: false, nodes: null, pauseOffset: rStart },
         }));
       },
-      shouldLoop ? { loopStart: rStart, loopEnd: rEnd } : undefined
+      shouldLoop ? { loopStart: rStart, loopEnd: rEnd } : undefined,
+      freshDeck.automationEnabled ? freshDeck.automationPoints : undefined,
     );
 
     set((s) => ({
@@ -1317,5 +1385,30 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     };
 
     liveRecorder.stop();
+  },
+
+  toggleAutomation: (id) => {
+    const deck = getDeck(get(), id);
+    set({ [deckKey(id)]: { ...deck, automationEnabled: !deck.automationEnabled } });
+  },
+
+  addAutomationPoint: (id, time, value) => {
+    const deck = getDeck(get(), id);
+    const points = [...deck.automationPoints, { time, value }].sort((a, b) => a.time - b.time);
+    set({ [deckKey(id)]: { ...deck, automationPoints: points } });
+  },
+
+  removeAutomationPoint: (id, index) => {
+    const deck = getDeck(get(), id);
+    const points = deck.automationPoints.filter((_, i) => i !== index);
+    set({ [deckKey(id)]: { ...deck, automationPoints: points } });
+  },
+
+  moveAutomationPoint: (id, index, time, value) => {
+    const deck = getDeck(get(), id);
+    const points = [...deck.automationPoints];
+    points[index] = { time, value };
+    points.sort((a, b) => a.time - b.time);
+    set({ [deckKey(id)]: { ...deck, automationPoints: points } });
   },
 }));
