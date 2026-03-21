@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface GalleryItem {
@@ -17,6 +18,8 @@ const textStyle: React.CSSProperties = { fontFamily: "Helvetica, Arial, sans-ser
 export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const isAdmin = searchParams.get("admin") === "1";
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
 
@@ -58,13 +61,15 @@ export default function GalleryPage() {
               GALLERY
             </span>
             <div className="ml-auto flex gap-2">
-              <button
-                onClick={() => setEditMode(!editMode)}
-                className="text-[10px] uppercase tracking-[0.15em] px-3 py-1 border-2 border-black"
-                style={{ ...textStyle, fontSize: "10px", background: editMode ? "#000" : "transparent", color: editMode ? "#fff" : "#000" }}
-              >
-                {editMode ? "DONE" : "EDIT"}
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  className="text-[10px] uppercase tracking-[0.15em] px-3 py-1 border-2 border-black"
+                  style={{ ...textStyle, fontSize: "10px", background: editMode ? "#000" : "transparent", color: editMode ? "#fff" : "#000" }}
+                >
+                  {editMode ? "DONE" : "EDIT"}
+                </button>
+              )}
               <Link
                 href="/"
                 className="text-[10px] uppercase tracking-[0.15em] px-3 py-1 border-2 border-black"
