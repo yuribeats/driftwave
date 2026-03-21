@@ -451,21 +451,16 @@ async function renderMixToWAV(get: () => RemixStore): Promise<Blob | null> {
   const { deckA, deckB, crossfader, masterBus } = get();
   const hasA = !!deckA.sourceBuffer;
   const hasB = !!deckB.sourceBuffer;
-  console.log("[RENDER] deckA loaded:", hasA, "deckB loaded:", hasB, "crossfader:", crossfader);
   if (!hasA && !hasB) return null;
 
   const cfGains = getCrossfaderGains(crossfader);
-  console.log("[RENDER] crossfader gains — A:", cfGains.a, "B:", cfGains.b);
-  const renders: { data: Float32Array[]; gain: number; sr: number; nch: number; label: string }[] = [];
+  const renders: { data: Float32Array[]; gain: number; sr: number; nch: number }[] = [];
 
-  for (const [deck, cfGain, label] of [
-    [deckA, cfGains.a, "A"],
-    [deckB, cfGains.b, "B"],
-  ] as [DeckState, number, string][]) {
-    if (!deck.sourceBuffer) {
-      console.log(`[RENDER] Deck ${label}: skipped (no sourceBuffer)`);
-      continue;
-    }
+  for (const [deck, cfGain] of [
+    [deckA, cfGains.a],
+    [deckB, cfGains.b],
+  ] as [DeckState, number][]) {
+    if (!deck.sourceBuffer) continue;
 
     const buf = (deck.activeStem && deck.stemBuffers?.[deck.activeStem]) || deck.sourceBuffer;
     const rStart = deck.regionStart;
@@ -473,35 +468,21 @@ async function renderMixToWAV(get: () => RemixStore): Promise<Blob | null> {
     const region = extractRegion(buf, rStart, rEnd);
     const expanded = expandParams(deck.params);
 
-    console.log(`[RENDER] Deck ${label}: duration=${buf.duration.toFixed(1)}s region=${rStart.toFixed(1)}-${rEnd.toFixed(1)} vol=${deck.volume} cfGain=${cfGain} finalGain=${(deck.volume * cfGain).toFixed(3)}`);
-
     const result = await renderOffline({
       ...region,
       params: expanded,
     });
-
-    // Check if render produced actual audio
-    let renderPeak = 0;
-    for (const ch of result.channelData) {
-      for (let i = 0; i < ch.length; i++) {
-        const abs = Math.abs(ch[i]);
-        if (abs > renderPeak) renderPeak = abs;
-      }
-    }
-    console.log(`[RENDER] Deck ${label}: rendered ${result.channelData[0].length} samples, peak=${renderPeak.toFixed(4)}`);
 
     renders.push({
       data: result.channelData,
       gain: deck.volume * cfGain,
       sr: result.sampleRate,
       nch: result.numberOfChannels,
-      label,
     });
   }
 
   if (renders.length === 0) return null;
 
-  console.log(`[RENDER] Mixing ${renders.length} renders: ${renders.map(r => `${r.label}(gain=${r.gain.toFixed(3)}, samples=${r.data[0].length})`).join(", ")}`);
   const sr = renders[0].sr;
   const nch = Math.max(...renders.map((r) => r.nch));
   const maxLen = Math.max(...renders.map((r) => r.data[0].length));
