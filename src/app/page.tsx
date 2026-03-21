@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useState } from "react";
-import { expandParams, renderOffline, encodeWAV } from "@yuribeats/audio-utils";
+import { expandParams } from "@yuribeats/audio-utils";
 import { useRemixStore } from "../../lib/remix-store";
 import { getAudioContext } from "../../lib/audio-context";
 import WaveformDisplay from "../../components/WaveformDisplay";
@@ -1088,58 +1088,8 @@ export default function Home() {
   const [manualOpen, setManualOpen] = useState(false);
   const [seqOpen, setSeqOpen] = useState(false);
   const [showDeckB, setShowDeckB] = useState(false);
-  const [mp4ExportBlob, setMp4ExportBlob] = useState<Blob | null>(null);
-  const [renderingMp4, setRenderingMp4] = useState(false);
-  const [mp4Error, setMp4Error] = useState("");
-
-  const handleMP4 = async () => {
-    if (!deckA.sourceBuffer || renderingMp4) return;
-    setRenderingMp4(true);
-    setMp4Error("");
-    try {
-      console.log("[MP4] Starting offline render...");
-      const buf = (deckA.activeStem && deckA.stemBuffers?.[deckA.activeStem]) || deckA.sourceBuffer;
-      const rStart = deckA.regionStart;
-      const rEnd = deckA.regionEnd > 0 ? deckA.regionEnd : buf.duration;
-      console.log("[MP4] Region:", rStart, "to", rEnd, "duration:", rEnd - rStart);
-      const sr = buf.sampleRate;
-      const s0 = Math.floor(rStart * sr);
-      const s1 = Math.ceil(rEnd * sr);
-      const length = s1 - s0;
-      const channelData: Float32Array[] = [];
-      for (let c = 0; c < buf.numberOfChannels; c++) {
-        channelData.push(buf.getChannelData(c).slice(s0, s1));
-      }
-      const expanded = expandParams(deckA.params);
-      console.log("[MP4] Rendering offline with rate:", expanded.rate);
-      const result = await renderOffline({
-        channelData,
-        sampleRate: sr,
-        numberOfChannels: buf.numberOfChannels,
-        length,
-        params: expanded,
-      });
-      console.log("[MP4] Offline render done, length:", result.length);
-      const offCtx = new OfflineAudioContext(result.numberOfChannels, result.length, result.sampleRate);
-      const mixBuf = offCtx.createBuffer(result.numberOfChannels, result.length, result.sampleRate);
-      for (let c = 0; c < result.numberOfChannels; c++) {
-        mixBuf.getChannelData(c).set(result.channelData[c]);
-      }
-      const src = offCtx.createBufferSource();
-      src.buffer = mixBuf;
-      src.connect(offCtx.destination);
-      src.start(0);
-      const rendered = await offCtx.startRendering();
-      const wavBlob = encodeWAV(rendered);
-      console.log("[MP4] WAV blob created:", wavBlob.size, "bytes");
-      setMp4ExportBlob(wavBlob);
-    } catch (e) {
-      console.error("[MP4] Render error:", e);
-      setMp4Error(e instanceof Error ? e.message : "RENDER FAILED");
-    } finally {
-      setRenderingMp4(false);
-    }
-  };
+  const exportMP4 = useRemixStore((s) => s.exportMP4);
+  const isExporting = useRemixStore((s) => s.isExporting);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6">
@@ -1166,12 +1116,12 @@ export default function Home() {
                 SEQ
               </button>
               <button
-                onClick={handleMP4}
-                disabled={!deckA.sourceBuffer || renderingMp4}
+                onClick={exportMP4}
+                disabled={(!deckA.sourceBuffer && !deckB.sourceBuffer) || isExporting}
                 className={detailBtnClass(false)}
-                style={{ ...detailBtnStyle, opacity: !deckA.sourceBuffer ? 0.4 : 1, color: mp4Error ? "#c82828" : "var(--accent-gold)", borderColor: mp4Error ? "#c82828" : "var(--accent-gold)" }}
+                style={{ ...detailBtnStyle, opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.4 : 1, color: "var(--accent-gold)", borderColor: "var(--accent-gold)" }}
               >
-                {renderingMp4 ? "RENDERING..." : mp4Error ? mp4Error : "EXPORT"}
+                {isExporting ? "RENDERING..." : "EXPORT"}
               </button>
               <button
                 onClick={() => setManualOpen(true)}
@@ -1314,15 +1264,8 @@ export default function Home() {
       {pendingVideoExport && (
         <ExportVideoModalRemix
           audioBlob={pendingVideoExport}
-          defaultFilename={`${deckA.sourceFilename || "deck-a"}-x-${deckB.sourceFilename || "deck-b"}-live`}
+          defaultFilename={`${deckA.sourceFilename || "deck-a"}${deckB.sourceBuffer ? `-x-${deckB.sourceFilename || "deck-b"}` : ""}-driftwave`}
           onClose={clearPendingExport}
-        />
-      )}
-      {mp4ExportBlob && (
-        <ExportVideoModalRemix
-          audioBlob={mp4ExportBlob}
-          defaultFilename={deckA.sourceFilename || "driftwave-export"}
-          onClose={() => setMp4ExportBlob(null)}
         />
       )}
     </main>
