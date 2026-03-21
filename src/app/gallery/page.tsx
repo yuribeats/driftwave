@@ -115,6 +115,7 @@ export default function GalleryPage() {
                     preload="metadata"
                     className="w-full aspect-square object-cover"
                     style={{ background: "#000" }}
+                    onError={() => setItems((prev) => prev.filter((i) => i.id !== item.id))}
                   />
                   <div className="flex flex-col gap-0.5">
                     <span
