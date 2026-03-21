@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   const gateway = process.env.PINATA_GATEWAY!;
   const id = crypto.randomUUID();
   const tmp = tmpdir();
-  const audioPath = join(tmp, `${id}-audio.wav`);
+  const audioPath = join(tmp, `${id}-audio.webm`);
   const imgPath = join(tmp, `${id}-cover.png`);
   const outPath = join(tmp, `${id}-output.mp4`);
 
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       "-i", imgPath,
       "-i", audioPath,
       "-c:v", "libx264",
+      "-preset", "ultrafast",
       "-tune", "stillimage",
       "-c:a", "aac",
       "-b:a", "192k",
