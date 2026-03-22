@@ -679,6 +679,16 @@ async function renderMixToWAV(get: () => RemixStore, forVideo = false): Promise<
     }
   }
 
+  // 1-second fade out at the end
+  const fadeSamples = Math.min(rendered.sampleRate, rendered.length);
+  const fadeStart = rendered.length - fadeSamples;
+  for (let c = 0; c < rendered.numberOfChannels; c++) {
+    const ch = rendered.getChannelData(c);
+    for (let i = 0; i < fadeSamples; i++) {
+      ch[fadeStart + i] *= 1 - i / fadeSamples;
+    }
+  }
+
   // For video export: 16-bit 22050Hz (~8x smaller than 32-bit 44100Hz)
   // ffmpeg re-encodes to AAC anyway so full quality isn't needed
   if (forVideo) return encodeWAV16(rendered, 22050);
