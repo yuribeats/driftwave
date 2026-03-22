@@ -1383,7 +1383,6 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     }
 
     if (!deckA.sourceBuffer || !deckB.sourceBuffer) return;
-    if (!deckA.calculatedBPM || !deckB.calculatedBPM) return;
 
     // Use raw loop lengths for perfect precision (avoid BPM rounding)
     const loopA = (deckA.regionEnd > 0 ? deckA.regionEnd : deckA.sourceBuffer.duration) - deckA.regionStart;

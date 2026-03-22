@@ -1283,11 +1283,11 @@ export default function Home() {
                 <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>LOCK BPM</span>
                 <button
                   onClick={() => lockBPM()}
-                  disabled={!bpmLocked && (!deckA.calculatedBPM || !deckB.calculatedBPM)}
+                  disabled={!bpmLocked && (!deckA.sourceBuffer || !deckB.sourceBuffer)}
                   className="rocker-switch"
                   style={{
                     width: "60px", height: "44px",
-                    opacity: (!bpmLocked && (!deckA.calculatedBPM || !deckB.calculatedBPM)) ? 0.4 : 1,
+                    opacity: (!bpmLocked && (!deckA.sourceBuffer || !deckB.sourceBuffer)) ? 0.4 : 1,
                     boxShadow: bpmLocked ? "inset 0 0 8px rgba(200,169,110,0.3)" : undefined,
                   }}
                 >
