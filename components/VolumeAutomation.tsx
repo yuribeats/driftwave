@@ -70,7 +70,7 @@ export default function VolumeAutomation({
     const valueToY = (v: number) => h - v * h;
 
     // Grid lines at 25%, 50%, 75%
-    ctx.strokeStyle = "#1a1a1a";
+    ctx.strokeStyle = "#333";
     ctx.lineWidth = 0.5;
     for (const pct of [0.25, 0.5, 0.75]) {
       const y = valueToY(pct);
@@ -81,7 +81,7 @@ export default function VolumeAutomation({
     }
 
     // Unity line (100%)
-    ctx.strokeStyle = "#2a2a2a";
+    ctx.strokeStyle = "#555";
     ctx.setLineDash([4, 4]);
     const unityY = valueToY(1);
     ctx.beginPath();
@@ -90,58 +90,76 @@ export default function VolumeAutomation({
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Draw automation line
+    // Draw automation line + filled area
     if (points.length > 0) {
-      ctx.strokeStyle = "var(--accent-gold, #c8a96e)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-
-      // Start from left edge
+      // Build the line path
+      const linePath: { x: number; y: number }[] = [];
       const firstX = timeToX(points[0].time);
       if (firstX > 0) {
-        ctx.moveTo(0, valueToY(points[0].value));
-        ctx.lineTo(firstX, valueToY(points[0].value));
-      } else {
-        ctx.moveTo(firstX, valueToY(points[0].value));
+        linePath.push({ x: 0, y: valueToY(points[0].value) });
       }
-
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(timeToX(points[i].time), valueToY(points[i].value));
+      for (let i = 0; i < points.length; i++) {
+        linePath.push({ x: timeToX(points[i].time), y: valueToY(points[i].value) });
       }
-
-      // Extend to right edge
       const lastX = timeToX(points[points.length - 1].time);
       if (lastX < w) {
-        ctx.lineTo(w, valueToY(points[points.length - 1].value));
+        linePath.push({ x: w, y: valueToY(points[points.length - 1].value) });
       }
 
+      // Filled area under the line
+      ctx.beginPath();
+      ctx.moveTo(linePath[0].x, h);
+      for (const pt of linePath) ctx.lineTo(pt.x, pt.y);
+      ctx.lineTo(linePath[linePath.length - 1].x, h);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(200, 169, 110, 0.15)";
+      ctx.fill();
+
+      // Bright line
+      ctx.strokeStyle = "#c8a96e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(linePath[0].x, linePath[0].y);
+      for (let i = 1; i < linePath.length; i++) {
+        ctx.lineTo(linePath[i].x, linePath[i].y);
+      }
       ctx.stroke();
 
       // Draw points
       for (let i = 0; i < points.length; i++) {
         const px = timeToX(points[i].time);
         const py = valueToY(points[i].value);
-        ctx.fillStyle = dragging === i ? "#fff" : "var(--accent-gold, #c8a96e)";
+
+        // Glow
+        ctx.shadowColor = dragging === i ? "rgba(255,255,255,0.6)" : "rgba(200,169,110,0.5)";
+        ctx.shadowBlur = 6;
+
+        ctx.fillStyle = dragging === i ? "#fff" : "#c8a96e";
         ctx.beginPath();
-        ctx.arc(px, py, POINT_RADIUS, 0, Math.PI * 2);
+        ctx.arc(px, py, POINT_RADIUS + 1, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.shadowBlur = 0;
+
         ctx.strokeStyle = "#000";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
     } else {
       // No points — draw unity line
-      ctx.strokeStyle = "#333";
+      ctx.strokeStyle = "#555";
       ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
       ctx.beginPath();
       ctx.moveTo(0, valueToY(1));
       ctx.lineTo(w, valueToY(1));
       ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     // Labels
-    ctx.fillStyle = "#555";
-    ctx.font = "8px monospace";
+    ctx.fillStyle = "#888";
+    ctx.font = "bold 8px monospace";
     ctx.textAlign = "left";
     ctx.fillText("100%", 2, unityY + 10);
     ctx.fillText("0%", 2, h - 2);
@@ -238,6 +256,7 @@ export default function VolumeAutomation({
           height: `${LANE_HEIGHT}px`,
           touchAction: "none",
           background: "#0a0a0a",
+          border: "1px solid #333",
           overflow: "hidden",
           display: enabled ? "block" : "none",
         }}
