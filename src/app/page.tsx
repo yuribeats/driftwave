@@ -13,6 +13,13 @@ import Link from "next/link";
 
 type DeckId = "A" | "B";
 
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
+
+function semitoneToKey(baseKeyIndex: number, semitones: number): string {
+  const idx = ((baseKeyIndex + Math.round(semitones)) % 12 + 12) % 12;
+  return NOTE_NAMES[idx];
+}
+
 function snapToSemitone(speed: number): number {
   const rate = 1.0 + speed;
   const semitones = 12 * Math.log2(rate);
@@ -83,6 +90,8 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const [bpmInput, setBpmInput] = useState("");
   const [editingBPM, setEditingBPM] = useState(false);
   const [ytUrl, setYtUrl] = useState("");
+  const [baseKey, setBaseKey] = useState<number | null>(null); // index into NOTE_NAMES, null = not set
+  const [editingKey, setEditingKey] = useState(false);
 
   const handleSpeed = (v: number) => {
     if (linked) {
@@ -223,7 +232,37 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                 BPM: {adjustedBPM !== null ? adjustedBPM.toFixed(3) : "TAP TO SET"}
               </span>
             )}
-            <span style={{ color: "var(--crt-bright)" }}>PITCH: {displaySemitones >= 0 ? "+" : ""}{displaySemitones.toFixed(1)}ST</span>
+            {editingKey ? (
+              <span style={{ color: "var(--crt-bright)" }}>
+                KEY:{" "}
+                <span className="inline-flex gap-0.5">
+                  {NOTE_NAMES.map((note, i) => (
+                    <button
+                      key={note}
+                      onClick={() => { setBaseKey(i); setEditingKey(false); }}
+                      className="px-1"
+                      style={{
+                        fontFamily: "var(--font-crt)", fontSize: "11px",
+                        color: baseKey === i ? "var(--accent-gold)" : "var(--crt-bright)",
+                        background: "transparent", border: "none",
+                      }}
+                    >
+                      {note}
+                    </button>
+                  ))}
+                </span>
+              </span>
+            ) : (
+              <span
+                style={{ color: "var(--crt-bright)" }}
+                onClick={() => setEditingKey(true)}
+              >
+                {baseKey !== null
+                  ? `KEY: ${semitoneToKey(baseKey, displaySemitones)}`
+                  : `PITCH: ${displaySemitones >= 0 ? "+" : ""}${displaySemitones.toFixed(1)}ST`
+                }
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -503,7 +542,12 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
               />
             </div>
             <div className="label" style={{ fontSize: "9px", marginTop: "4px" }}>PITCH</div>
-            <span className="text-[9px]" style={{ color: "var(--text-dark)" }}>{displaySemitones >= 0 ? "+" : ""}{displaySemitones.toFixed(1)}ST</span>
+            <span className="text-[9px]" style={{ color: "var(--text-dark)" }}>
+              {baseKey !== null
+                ? semitoneToKey(baseKey, displaySemitones)
+                : `${displaySemitones >= 0 ? "+" : ""}${displaySemitones.toFixed(1)}ST`
+              }
+            </span>
             <button onClick={() => setStepMode(!stepMode)} className={detailBtnClass(stepMode)} style={detailBtnStyle}>STEP</button>
           </div>
           <div className="flex flex-col items-center gap-1">
