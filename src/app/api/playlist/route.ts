@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not extract playlist ID" }, { status: 400 });
   }
 
-  if (!process.env.YOUTUBE_API_KEY) {
-    return NextResponse.json({ error: "YOUTUBE_API_KEY not configured" }, { status: 500 });
+  if (!process.env.API_KEY) {
+    return NextResponse.json({ error: "API_KEY not configured" }, { status: 500 });
   }
 
   try {
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         part: "snippet",
         playlistId,
         maxResults: "50",
-        key: process.env.YOUTUBE_API_KEY,
+        key: process.env.API_KEY,
       });
       if (pageToken) params.set("pageToken", pageToken);
 
