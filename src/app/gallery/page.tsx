@@ -32,6 +32,8 @@ function GalleryContent() {
   const [editMode, setEditMode] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<Record<string, string>>({});
+  const [tiktokUploading, setTiktokUploading] = useState<string | null>(null);
+  const [tiktokResult, setTiktokResult] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/api/gallery")
@@ -58,6 +60,23 @@ function GalleryContent() {
       setUploadResult((prev) => ({ ...prev, [item.id]: e instanceof Error ? e.message : "FAILED" }));
     }
     setUploading(null);
+  }
+
+  async function handleTikTokUpload(item: GalleryItem) {
+    setTiktokUploading(item.id);
+    try {
+      const res = await fetch("/api/tiktok/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: item.url, artist: item.artist, title: item.title }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "UPLOAD FAILED");
+      setTiktokResult((prev) => ({ ...prev, [item.id]: "SENT TO TIKTOK" }));
+    } catch (e) {
+      setTiktokResult((prev) => ({ ...prev, [item.id]: e instanceof Error ? e.message : "FAILED" }));
+    }
+    setTiktokUploading(null);
   }
 
   async function handleDelete(id: string) {
@@ -174,7 +193,7 @@ function GalleryContent() {
                     </span>
                   </div>
                   {isAdmin && (
-                    <div className="mt-1">
+                    <div className="mt-1 flex gap-2 flex-wrap">
                       {uploadResult[item.id] ? (
                         uploadResult[item.id].startsWith("http") ? (
                           <a
@@ -184,7 +203,7 @@ function GalleryContent() {
                             className="text-[9px] uppercase tracking-wider"
                             style={{ ...textStyle, fontSize: "9px", color: "#228B22" }}
                           >
-                            UPLOADED — VIEW ON YOUTUBE
+                            YOUTUBE OK
                           </a>
                         ) : (
                           <span className="text-[9px] uppercase tracking-wider" style={{ ...textStyle, fontSize: "9px", color: "#c82828" }}>
@@ -198,7 +217,24 @@ function GalleryContent() {
                           className="text-[9px] uppercase tracking-wider border border-black px-2 py-1"
                           style={{ ...textStyle, fontSize: "9px", background: "transparent", opacity: uploading === item.id ? 0.4 : 1 }}
                         >
-                          {uploading === item.id ? "UPLOADING..." : "UPLOAD TO YOUTUBE"}
+                          {uploading === item.id ? "UPLOADING..." : "YOUTUBE"}
+                        </button>
+                      )}
+                      {tiktokResult[item.id] ? (
+                        <span
+                          className="text-[9px] uppercase tracking-wider"
+                          style={{ ...textStyle, fontSize: "9px", color: tiktokResult[item.id] === "SENT TO TIKTOK" ? "#228B22" : "#c82828" }}
+                        >
+                          {tiktokResult[item.id]}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleTikTokUpload(item)}
+                          disabled={tiktokUploading === item.id}
+                          className="text-[9px] uppercase tracking-wider border border-black px-2 py-1"
+                          style={{ ...textStyle, fontSize: "9px", background: "transparent", opacity: tiktokUploading === item.id ? 0.4 : 1 }}
+                        >
+                          {tiktokUploading === item.id ? "UPLOADING..." : "TIKTOK"}
                         </button>
                       )}
                     </div>
@@ -207,6 +243,14 @@ function GalleryContent() {
               ))}
             </div>
           )}
+        </div>
+        <div className="flex gap-4 justify-center py-4">
+          <Link href="/terms" className="text-[8px] uppercase tracking-wider" style={{ ...textStyle, fontSize: "8px", opacity: 0.3 }}>
+            TERMS
+          </Link>
+          <Link href="/privacy" className="text-[8px] uppercase tracking-wider" style={{ ...textStyle, fontSize: "8px", opacity: 0.3 }}>
+            PRIVACY
+          </Link>
         </div>
       </div>
     </main>
