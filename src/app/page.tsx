@@ -92,6 +92,8 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const [ytUrl, setYtUrl] = useState("");
   const [baseKey, setBaseKey] = useState<number | null>(null); // index into NOTE_NAMES, null = not set
   const [editingKey, setEditingKey] = useState(false);
+  const [editingSpeed, setEditingSpeed] = useState(false);
+  const [speedInput, setSpeedInput] = useState("");
 
   const handleSpeed = (v: number) => {
     if (linked) {
@@ -519,7 +521,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             <div className="relative h-[100px] w-[36px] flex justify-center">
               <div className="slider-track h-full" />
               <input
-                type="range" min="-0.5" max="0.5" step={stepMode && linked ? 0.001 : 0.01}
+                type="range" min="-0.5" max="0.5" step={stepMode && linked ? 0.001 : 0.001}
                 value={deck.params.speed}
                 onChange={(e) => handleSpeed(parseFloat(e.target.value))}
                 className="absolute h-full"
@@ -527,7 +529,31 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
               />
             </div>
             <div className="label" style={{ fontSize: "9px", marginTop: "4px" }}>SPEED</div>
-            <span className="text-[9px]" style={{ color: "var(--text-dark)" }}>{rate.toFixed(2)}X</span>
+            {editingSpeed ? (
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const v = parseFloat(speedInput);
+                if (!isNaN(v) && v > 0) handleSpeed(v - 1.0);
+                setEditingSpeed(false);
+              }} className="flex">
+                <input
+                  autoFocus
+                  value={speedInput}
+                  onChange={(e) => setSpeedInput(e.target.value)}
+                  onBlur={() => setEditingSpeed(false)}
+                  className="bg-transparent border border-[#333] text-center w-[60px] text-[9px]"
+                  style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", outline: "none" }}
+                />
+              </form>
+            ) : (
+              <span
+                className="text-[9px]"
+                style={{ color: "var(--text-dark)" }}
+                onClick={() => { setSpeedInput(rate.toFixed(4)); setEditingSpeed(true); }}
+              >
+                {rate.toFixed(4)}X
+              </span>
+            )}
             <button onClick={toggleLink} className={detailBtnClass(linked)} style={detailBtnStyle}>LINK</button>
           </div>
           <div className="flex flex-col items-center gap-1">

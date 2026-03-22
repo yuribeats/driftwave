@@ -11,7 +11,7 @@ export interface RenderInput {
 
 /**
  * Granular pitch shift applied directly to sample data.
- * Two overlapping Hann-windowed grains, constant-power crossfade.
+ * Four overlapping Hann-windowed grains for smooth results.
  */
 function pitchShiftBuffer(
   channelData: Float32Array[],
@@ -21,8 +21,9 @@ function pitchShiftBuffer(
 
   const numCh = channelData.length;
   const len = channelData[0].length;
-  const grainSize = 2048;
-  const halfGrain = grainSize / 2;
+  const numGrains = 4;
+  const grainSize = 8192;
+  const grainSpacing = grainSize / numGrains;
 
   // Pre-compute Hann window
   const win = new Float32Array(grainSize);
@@ -33,16 +34,23 @@ function pitchShiftBuffer(
   const output: Float32Array[] = [];
   for (let c = 0; c < numCh; c++) output.push(new Float32Array(len));
 
-  // State for two read heads
-  const rPos = [0, halfGrain];
-  const rPhase = [0, halfGrain];
+  // State for read heads
+  const rPos = new Float64Array(numGrains);
+  const rPhase = new Float64Array(numGrains);
+  for (let g = 0; g < numGrains; g++) {
+    rPos[g] = 0;
+    rPhase[g] = g * grainSpacing;
+  }
+
+  const norm = 2.0 / numGrains;
 
   for (let i = 0; i < len; i++) {
-    for (let g = 0; g < 2; g++) {
+    for (let g = 0; g < numGrains; g++) {
       const rp = rPos[g];
       const idx = Math.floor(rp);
       const frac = rp - idx;
-      const w = win[rPhase[g]];
+      const phase = Math.floor(rPhase[g]) % grainSize;
+      const w = win[phase];
 
       for (let c = 0; c < numCh; c++) {
         const data = channelData[c];
@@ -60,6 +68,11 @@ function pitchShiftBuffer(
         rPos[g] = i - grainSize + 1;
         if (rPos[g] < 0) rPos[g] = 0;
       }
+    }
+
+    // Normalize
+    for (let c = 0; c < numCh; c++) {
+      output[c][i] *= norm;
     }
   }
 
@@ -195,12 +208,14 @@ export async function renderOffline(input: RenderInput): Promise<{
     outputChannels.push(new Float32Array(rendered.getChannelData(c)));
   }
 
-  // Apply pitch shift post-processing when unlinked and pitchFactor != 1
-  if (!params.pitchSpeedLinked && Math.abs(params.pitchFactor - 1.0) > 0.0005) {
-    // Compensate: playbackRate already shifted pitch by `rate`. We want pitchFactor.
-    // Net shift needed: pitchFactor / rate
+  // Apply pitch shift post-processing when unlinked
+  // playbackRate changes both tempo AND pitch. When unlinked, we need to compensate
+  // so only tempo changes. Net shift = pitchFactor / rate.
+  if (!params.pitchSpeedLinked) {
     const netShift = params.pitchFactor / params.rate;
-    outputChannels = pitchShiftBuffer(outputChannels, netShift);
+    if (Math.abs(netShift - 1.0) > 0.0005) {
+      outputChannels = pitchShiftBuffer(outputChannels, netShift);
+    }
   }
 
   return {

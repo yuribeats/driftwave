@@ -971,31 +971,34 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     // BPM lock: Deck A speed/pitch changes propagate to Deck B
     if (id === "A" && get().bpmLocked && (paramKey === "speed" || paramKey === "pitch")) {
       const { deckA, deckB } = get();
-      if (deckA.calculatedBPM && deckB.calculatedBPM) {
-        const rateA = 1.0 + deckA.params.speed;
-        const targetBPM = deckA.calculatedBPM * rateA;
-        const newRateB = targetBPM / deckB.calculatedBPM;
-        const newSpeedB = Math.max(-0.5, Math.min(0.5, newRateB - 1.0));
+      if (deckA.sourceBuffer && deckB.sourceBuffer) {
+        const loopA = (deckA.regionEnd > 0 ? deckA.regionEnd : deckA.sourceBuffer.duration) - deckA.regionStart;
+        const loopB = (deckB.regionEnd > 0 ? deckB.regionEnd : deckB.sourceBuffer.duration) - deckB.regionStart;
+        if (loopA > 0 && loopB > 0) {
+          const rateA = 1.0 + deckA.params.speed;
+          const newRateB = (loopB / loopA) * rateA;
+          const newSpeedB = Math.max(-0.5, Math.min(0.5, newRateB - 1.0));
 
-        // Set B's speed to match A's BPM
-        const bKey = deckKey("B");
-        set((s) => ({
-          [bKey]: { ...s[bKey], params: { ...s[bKey].params, speed: newSpeedB } },
-        }));
-        const deckBFresh = getDeck(get(), "B");
-        if (deckBFresh.nodes) {
-          deckBFresh.nodes.source.playbackRate.value = 1.0 + newSpeedB;
-          if (deckBFresh.nodes.pitchShifter) {
-            const expB = expandParams(deckBFresh.params);
-            deckBFresh.nodes.pitchShifter.port.postMessage({ pitchFactor: expB.pitchFactor / expB.rate });
-          }
-        }
-
-        // If A changed pitch and B is linked, match pitch too
-        if (paramKey === "pitch" && (deckBFresh.params.pitchSpeedLinked ?? true)) {
+          // Set B's speed to match A's BPM
+          const bKey = deckKey("B");
           set((s) => ({
-            [bKey]: { ...s[bKey], params: { ...s[bKey].params, pitch: 12 * Math.log2(1.0 + newSpeedB) } },
+            [bKey]: { ...s[bKey], params: { ...s[bKey].params, speed: newSpeedB } },
           }));
+          const deckBFresh = getDeck(get(), "B");
+          if (deckBFresh.nodes) {
+            deckBFresh.nodes.source.playbackRate.value = 1.0 + newSpeedB;
+            if (deckBFresh.nodes.pitchShifter) {
+              const expB = expandParams(deckBFresh.params);
+              deckBFresh.nodes.pitchShifter.port.postMessage({ pitchFactor: expB.pitchFactor / expB.rate });
+            }
+          }
+
+          // If A changed pitch and B is linked, match pitch too
+          if (paramKey === "pitch" && (deckBFresh.params.pitchSpeedLinked ?? true)) {
+            set((s) => ({
+              [bKey]: { ...s[bKey], params: { ...s[bKey].params, pitch: 12 * Math.log2(1.0 + newSpeedB) } },
+            }));
+          }
         }
       }
     }
