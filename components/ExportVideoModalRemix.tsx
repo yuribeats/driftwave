@@ -43,7 +43,6 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
   const [exporting, setExporting] = useState(false);
   const [customImage, setCustomImage] = useState<string | null>(null);
   const [customImageName, setCustomImageName] = useState("");
-  const [watermark, setWatermark] = useState(true);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const progress = step < 0 ? 0 : Math.min(((step + 1) / STEPS.length) * 100, 100);
@@ -78,7 +77,7 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
       formData.append("image", coverBlob, "cover.png");
       formData.append("artist", artist.trim());
       formData.append("title", title.trim());
-      formData.append("watermark", String(watermark));
+      formData.append("watermark", "true");
 
       const res = await fetch("/api/generate-video", {
         method: "POST",
@@ -193,25 +192,6 @@ export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onCl
               CLEAR
             </button>
           )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}>
-            AUDIO WATERMARK
-          </span>
-          <button
-            onClick={() => setWatermark(!watermark)}
-            disabled={exporting}
-            className="text-[10px] uppercase tracking-wider border border-[#333] px-3 py-1"
-            style={{
-              fontFamily: "var(--font-tech)",
-              color: watermark ? "var(--accent-gold)" : "var(--text-dark)",
-              background: "transparent",
-              opacity: watermark ? 1 : 0.4,
-            }}
-          >
-            {watermark ? "ON" : "OFF"}
-          </button>
         </div>
 
         {/* Progress bar */}

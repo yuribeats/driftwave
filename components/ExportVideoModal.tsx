@@ -32,8 +32,6 @@ export default function ExportVideoModal({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("");
   const [exporting, setExporting] = useState(false);
-  const [watermark, setWatermark] = useState(true);
-
   const sourceBuffer = useStore((s) => s.sourceBuffer);
   const sourceFilename = useStore((s) => s.sourceFilename);
   const params = useStore((s) => s.params);
@@ -96,7 +94,7 @@ export default function ExportVideoModal({ onClose }: { onClose: () => void }) {
       formData.append("image", coverBlob, "cover.png");
       formData.append("artist", artist.trim());
       formData.append("title", title.trim());
-      formData.append("watermark", String(watermark));
+      formData.append("watermark", "true");
 
       const res = await fetch("/api/generate-video", {
         method: "POST",
@@ -189,25 +187,6 @@ export default function ExportVideoModal({ onClose }: { onClose: () => void }) {
             className="bg-transparent border border-[#333] px-3 py-2 text-[13px] uppercase tracking-wider"
             style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", outline: "none" }}
           />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-wider" style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}>
-            AUDIO WATERMARK
-          </span>
-          <button
-            onClick={() => setWatermark(!watermark)}
-            disabled={exporting}
-            className="text-[10px] uppercase tracking-wider border border-[#333] px-3 py-1"
-            style={{
-              fontFamily: "var(--font-tech)",
-              color: watermark ? "var(--accent-gold)" : "var(--text-dark)",
-              background: "transparent",
-              opacity: watermark ? 1 : 0.4,
-            }}
-          >
-            {watermark ? "ON" : "OFF"}
-          </button>
         </div>
 
         <button

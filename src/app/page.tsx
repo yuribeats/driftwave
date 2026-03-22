@@ -1209,8 +1209,7 @@ export default function Home() {
             >
               SLOWED AND REVERBED MACHINE
             </span>
-            <div className="ml-auto flex items-center gap-2">
-              <Link href="/gallery" className={detailBtnClass(false)} style={detailBtnStyle}>GALLERY</Link>
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
               <button
                 onClick={() => setSeqOpen(!seqOpen)}
                 className={detailBtnClass(seqOpen)}
@@ -1219,20 +1218,27 @@ export default function Home() {
                 SEQ
               </button>
               <button
-                onClick={exportMP4}
-                disabled={(!deckA.sourceBuffer && !deckB.sourceBuffer) || isExporting}
-                className={detailBtnClass(false)}
-                style={{ ...detailBtnStyle, opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.4 : 1, color: "var(--accent-gold)", borderColor: "var(--accent-gold)" }}
-              >
-                {isExporting ? "RENDERING..." : "EXPORT"}
-              </button>
-              <button
                 onClick={() => setManualOpen(true)}
                 className={detailBtnClass(false)}
                 style={detailBtnStyle}
               >
                 MANUAL
               </button>
+              <button
+                onClick={exportMP4}
+                disabled={(!deckA.sourceBuffer && !deckB.sourceBuffer) || isExporting}
+                className="text-[10px] sm:text-[11px] uppercase tracking-[0.15em] px-3 sm:px-4 py-1 sm:py-1.5 border-2"
+                style={{ fontFamily: "var(--font-tech)", background: "transparent", opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.3 : 1, color: "var(--accent-gold)", borderColor: "var(--accent-gold)" }}
+              >
+                {isExporting ? "RENDERING..." : "EXPORT MP4"}
+              </button>
+              <Link
+                href="/gallery"
+                className="text-[10px] sm:text-[11px] uppercase tracking-[0.15em] px-3 sm:px-4 py-1 sm:py-1.5 border-2"
+                style={{ fontFamily: "var(--font-tech)", background: "rgba(255,115,0,0.12)", color: "var(--accent-gold)", borderColor: "var(--accent-gold)" }}
+              >
+                GALLERY
+              </Link>
             </div>
           </div>
 
