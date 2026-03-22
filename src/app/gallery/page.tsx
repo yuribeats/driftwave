@@ -245,10 +245,10 @@ function GalleryContent() {
           )}
         </div>
         <div className="flex gap-4 justify-center py-4">
-          <Link href="/terms" className="text-[8px] uppercase tracking-wider" style={{ ...textStyle, fontSize: "8px", opacity: 0.3 }}>
+          <Link href="/terms" className="text-[11px] uppercase tracking-wider" style={{ ...textStyle, fontSize: "11px", opacity: 0.5 }}>
             TERMS
           </Link>
-          <Link href="/privacy" className="text-[8px] uppercase tracking-wider" style={{ ...textStyle, fontSize: "8px", opacity: 0.3 }}>
+          <Link href="/privacy" className="text-[11px] uppercase tracking-wider" style={{ ...textStyle, fontSize: "11px", opacity: 0.5 }}>
             PRIVACY
           </Link>
         </div>
