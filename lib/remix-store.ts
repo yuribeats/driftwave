@@ -891,6 +891,12 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       deck.nodes.convolver.buffer = generateIR(ctx, expanded.reverbDuration, expanded.reverbDecay);
     }
 
+    // Toggling link requires rebuilding audio graph (adds/removes pitch worklet)
+    if (paramKey === "pitchSpeedLinked" && deck.isPlaying) {
+      get().pause(id);
+      setTimeout(() => get().play(id), 50);
+    }
+
     const satKeys: (keyof SimpleParams)[] = ["saturation", "satDriveOverride", "satMixOverride", "satToneOverride"];
     if (satKeys.includes(paramKey)) {
       deck.nodes.waveshaper.curve = makeSaturationCurve(expanded.satDrive);
