@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const MUSEUM_SOURCE = "https://museum.ink/imagedata.json";
 
 interface ImageEntry {
@@ -23,7 +25,7 @@ function shuffle(arr: ImageEntry[]): ImageEntry[] {
 export async function GET() {
   try {
     if (!cachedImages) {
-      const res = await fetch(MUSEUM_SOURCE, { next: { revalidate: 3600 } });
+      const res = await fetch(MUSEUM_SOURCE, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch image list");
       const data = await res.json();
       cachedImages = data.images || [];
