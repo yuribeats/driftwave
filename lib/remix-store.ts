@@ -598,21 +598,23 @@ async function renderMixToWAV(get: () => RemixStore, forVideo = false): Promise<
   const maxLen = Math.max(...renders.map((r) => r.data[0].length));
 
   // Mix all renders together (with automation applied per-sample)
+  // Shorter decks loop to fill the longer deck's duration
   const mixed: Float32Array[] = [];
   for (let c = 0; c < nch; c++) mixed.push(new Float32Array(maxLen));
   for (const r of renders) {
     const hasAuto = r.autoPoints.length > 0;
+    const rLen = r.data[0].length;
     for (let c = 0; c < nch; c++) {
       const ch = c < r.data.length ? r.data[c] : r.data[0];
-      for (let i = 0; i < ch.length; i++) {
+      for (let i = 0; i < maxLen; i++) {
+        const si = i % rLen;
         let autoVal = 1;
         if (hasAuto) {
-          // Map sample index back to source buffer time
           const realTime = i / r.sr;
           const sourceTime = r.rStart + realTime * r.rate;
           autoVal = getAutomationValue(r.autoPoints, sourceTime);
         }
-        mixed[c][i] += ch[i] * r.gain * autoVal;
+        mixed[c][i] += ch[si] * r.gain * autoVal;
       }
     }
   }

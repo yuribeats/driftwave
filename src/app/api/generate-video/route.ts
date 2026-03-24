@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         "-y",
         "-i", audioPath,
         "-i", watermarkPath,
-        "-filter_complex", "[1:a]adelay=0|0[w];[0:a][w]amix=inputs=2:duration=first:dropout_transition=0",
+        "-filter_complex", "[1:a]volume=6dB,adelay=0|0[w];[0:a][w]amix=inputs=2:duration=first:dropout_transition=0,volume=2",
         "-c:a", "pcm_s16le",
         mixedPath,
       ]);

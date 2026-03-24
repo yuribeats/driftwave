@@ -53,7 +53,7 @@ export async function generateCover(
   const imageHeight = SIZE - PADDING * 2 - TEXT_HEIGHT * 2 - GAP * 2;
 
   try {
-    const img = await loadImage(customImageUrl || "/api/random-image");
+    const img = await loadImage(customImageUrl || "/api/random-image?t=" + Date.now());
     const imgAspect = img.width / img.height;
     const boxAspect = textWidth / imageHeight;
 
