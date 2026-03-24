@@ -66,6 +66,8 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const [toneDetail, setToneDetail] = useState(false);
   const [satDetail, setSatDetail] = useState(false);
   const [nudgeStep, setNudgeStep] = useState(0.001);
+  const waveformWrapRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const rate = 1.0 + deck.params.speed;
   const pitchSemitones = deck.params.pitch ?? 0;
@@ -213,18 +215,46 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
       </div>
 
       {/* Waveform */}
-      <WaveformDisplay
-        audioBuffer={deck.sourceBuffer}
-        isPlaying={deck.isPlaying}
-        pauseOffset={deck.pauseOffset}
-        startedAt={deck.startedAt}
-        playbackRate={rate}
-        regionStart={deck.regionStart}
-        regionEnd={deck.regionEnd}
-        onRegionChange={(s, e) => setRegion(id, s, e)}
-        onSeek={(pos) => seek(id, pos)}
-        onScrub={(pos) => scrub(id, pos)}
-      />
+      <div ref={waveformWrapRef} style={{ background: isFullscreen ? "var(--bg-dark, #1a1a1a)" : undefined, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: isFullscreen ? 1 : undefined }}>
+          <WaveformDisplay
+            audioBuffer={deck.sourceBuffer}
+            isPlaying={deck.isPlaying}
+            pauseOffset={deck.pauseOffset}
+            startedAt={deck.startedAt}
+            playbackRate={rate}
+            regionStart={deck.regionStart}
+            regionEnd={deck.regionEnd}
+            onRegionChange={(s, e) => setRegion(id, s, e)}
+            onSeek={(pos) => seek(id, pos)}
+            onScrub={(pos) => scrub(id, pos)}
+          />
+        </div>
+        {deck.sourceBuffer && (
+          <div className="flex justify-center mt-1">
+            <button
+              onClick={() => {
+                const el = waveformWrapRef.current;
+                if (!el) return;
+                if (document.fullscreenElement) {
+                  document.exitFullscreen();
+                  setIsFullscreen(false);
+                } else {
+                  el.requestFullscreen().then(() => setIsFullscreen(true));
+                  const onExit = () => {
+                    if (!document.fullscreenElement) { setIsFullscreen(false); document.removeEventListener("fullscreenchange", onExit); }
+                  };
+                  document.addEventListener("fullscreenchange", onExit);
+                }
+              }}
+              className={detailBtnClass(false)}
+              style={detailBtnStyle}
+            >
+              {isFullscreen ? "EXIT FULLSCREEN" : "FULLSCREEN"}
+            </button>
+          </div>
+        )}
+      </div>
 
 
       {/* Loop IN/OUT nudge controls */}
@@ -290,28 +320,17 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
       {deck.sourceBuffer && (
         <div className="flex flex-col items-center gap-1">
           <div className="flex items-center gap-2 justify-center">
-            <span className="label" style={{ margin: 0, fontSize: "8px" }}>
-              {deck.isStemLoading ? "SEPARATING..." : "ISOLATE:"}
-            </span>
-            {(["vocals", "drums", "bass", "other"] as const).map((stem) => (
-              <button
-                key={stem}
-                onClick={() => setStem(id, stem)}
-                disabled={deck.isStemLoading}
-                className={detailBtnClass(deck.activeStem === stem && !deck.isStemLoading)}
-                style={{
-                  ...detailBtnStyle,
-                  opacity: deck.isStemLoading ? 0.5 : 1,
-                }}
-              >
-                {deck.isStemLoading && deck.activeStem === stem
-                  ? "..."
-                  : stem.toUpperCase()}
-              </button>
-            ))}
-            {deck.stemBuffers && !deck.isStemLoading && (
-              <span className="text-[7px]" style={{ color: "var(--crt-dim)", fontFamily: "var(--font-tech)" }}>READY</span>
-            )}
+            <button
+              onClick={() => setStem(id, "vocals")}
+              disabled={deck.isStemLoading}
+              className={detailBtnClass(deck.activeStem === "vocals" && !deck.isStemLoading)}
+              style={{
+                ...detailBtnStyle,
+                opacity: deck.isStemLoading ? 0.5 : 1,
+              }}
+            >
+              {deck.isStemLoading ? "SEPARATING..." : "ISOLATE VOCALS"}
+            </button>
           </div>
           {deck.stemError && (
             <span className="text-[8px]" style={{ color: "var(--led-red-on)", fontFamily: "var(--font-tech)" }}>
@@ -873,7 +892,7 @@ function Manual({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>STEM ISOLATION</div>
-            <div>CLICK VOCALS, DRUMS, BASS, OR OTHER TO ISOLATE A STEM USING ML SEPARATION (DEMUCS). FIRST USE TAKES 30-60 SECONDS. CLICK AGAIN TO TOGGLE OFF.</div>
+            <div>CLICK ISOLATE VOCALS TO SEPARATE VOCALS USING ML (DEMUCS). FIRST USE TAKES 30-60 SECONDS. CLICK AGAIN TO TOGGLE OFF.</div>
           </div>
           <div>
             <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>OUTPUT BUS</div>
