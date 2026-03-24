@@ -356,12 +356,13 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           );
         }
         const sectionDur = deck.gridLockedSectionDur;
+        const sectionDurWallClock = sectionDur / rate; // actual playback time between lines
         const gridAnchor = deck.gridFirstTransient + deck.gridOffsetMs / 1000;
         const dur = deck.sourceBuffer!.duration;
         const inVal = deck.regionStart;
         const outVal = deck.regionEnd > 0 ? deck.regionEnd : dur;
         const sectionCount = Math.round((outVal - inVal) / sectionDur);
-        const sectionDurMs = (sectionDur * 1000).toFixed(0);
+        const sectionDurMs = (sectionDurWallClock * 1000).toFixed(0);
 
         const snapGridIn = (dir: number) => {
           const n = dir < 0
@@ -417,15 +418,15 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
 
           if (loops.length === 0) return;
 
-          // Open MPC and send data
-          const mpcUrl = "https://studio-2026-03-19.vercel.app/mpc.html";
-          const mpcWin = window.open(mpcUrl, "driftwave-mpc");
-          if (!mpcWin) return;
-          const msg = { type: "deck-export-mpc", loops, bank: "A" };
+          // Open full studio and send data to MPC
+          const studioUrl = "https://studio-2026-03-19.vercel.app";
+          const studioWin = window.open(studioUrl, "driftwave-studio");
+          if (!studioWin) return;
+          const msg = { type: "deck-export-mpc", loops, bank: id === "B" ? "B" : "A" };
           let attempts = 0;
           const trySend = setInterval(() => {
             attempts++;
-            try { mpcWin.postMessage(msg, "https://studio-2026-03-19.vercel.app"); } catch { /* cross-origin timing */ }
+            try { studioWin.postMessage(msg, "https://studio-2026-03-19.vercel.app"); } catch { /* cross-origin timing */ }
             if (attempts >= 10) clearInterval(trySend);
           }, 500);
         };
