@@ -976,6 +976,15 @@ export default function Home() {
               >
                 GALLERY
               </Link>
+              <a
+                href="https://everysong.site"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] sm:text-[11px] uppercase tracking-[0.15em] px-3 sm:px-4 py-1 sm:py-1.5 border-2"
+                style={{ fontFamily: "var(--font-tech)", background: "transparent", color: "var(--text-dark)", borderColor: "#555" }}
+              >
+                EVERY SONG
+              </a>
             </div>
           </div>
 
