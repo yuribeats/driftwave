@@ -337,7 +337,16 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
 
 
       {/* GRIDLOCK section */}
-      {deck.gridlockEnabled && deck.calculatedBPM && deck.sourceBuffer && (() => {
+      {deck.gridlockEnabled && deck.sourceBuffer && (() => {
+        if (!deck.calculatedBPM) {
+          return (
+            <div className="zone-engraved" style={{ borderColor: "rgba(200,40,40,0.4)" }}>
+              <div className="text-[12px] text-center" style={{ color: "#c82828", fontFamily: "var(--font-tech)" }}>
+                SET BPM TO ENABLE GRIDLOCK
+              </div>
+            </div>
+          );
+        }
         const displayBPM = deck.calculatedBPM * rate;
         const sectionDur = 960 / displayBPM;
         const gridAnchor = deck.gridFirstTransient + deck.gridOffsetMs / 1000;
@@ -360,6 +369,58 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             : Math.ceil((outVal - gridAnchor) / sectionDur + 0.001);
           const snapped = gridAnchor + n * sectionDur;
           setRegion(id, deck.regionStart, snapped);
+        };
+        const exportToMPC = () => {
+          if (!deck.sourceBuffer) return;
+          const buf = deck.sourceBuffer;
+          const sr = buf.sampleRate;
+          const ch0 = buf.getChannelData(0);
+          const loops: { name: string; sampleRate: number; length: number; data: Float32Array }[] = [];
+
+          // Calculate grid line positions within the region
+          const firstN = Math.ceil((inVal - gridAnchor) / sectionDur);
+          const lastN = Math.floor((outVal - gridAnchor) / sectionDur);
+          const gridLines: number[] = [];
+          for (let n = firstN; n <= lastN; n++) {
+            const t = gridAnchor + n * sectionDur;
+            if (t >= inVal - 0.001 && t <= outVal + 0.001) gridLines.push(t);
+          }
+          // Add region boundaries if not already at a grid line
+          if (gridLines.length === 0 || gridLines[0] > inVal + 0.001) gridLines.unshift(inVal);
+          if (gridLines[gridLines.length - 1] < outVal - 0.001) gridLines.push(outVal);
+
+          // Extract audio between consecutive grid lines (max 16 for MPC pads)
+          for (let i = 0; i < gridLines.length - 1 && loops.length < 16; i++) {
+            const start = Math.max(0, gridLines[i]);
+            const end = Math.min(dur, gridLines[i + 1]);
+            if (end <= start) continue;
+            const startSample = Math.floor(start * sr);
+            const endSample = Math.min(Math.ceil(end * sr), ch0.length);
+            const sliceLen = endSample - startSample;
+            if (sliceLen <= 0) continue;
+            const data = new Float32Array(sliceLen);
+            data.set(ch0.subarray(startSample, endSample));
+            loops.push({
+              name: `${(i + 1).toString().padStart(2, "0")} - ${Math.round(start * 1000)}MS`,
+              sampleRate: sr,
+              length: sliceLen,
+              data,
+            });
+          }
+
+          if (loops.length === 0) return;
+
+          // Open MPC and send data
+          const mpcUrl = "https://studio-2026-03-19.vercel.app/mpc.html";
+          const mpcWin = window.open(mpcUrl, "driftwave-mpc");
+          if (!mpcWin) return;
+          const msg = { type: "deck-export-mpc", loops };
+          let attempts = 0;
+          const trySend = setInterval(() => {
+            attempts++;
+            try { mpcWin.postMessage(msg, "https://studio-2026-03-19.vercel.app"); } catch { /* cross-origin timing */ }
+            if (attempts >= 10) clearInterval(trySend);
+          }, 500);
         };
         const gridBtnStyle: React.CSSProperties = {
           fontFamily: "var(--font-tech)", color: "#c82828", background: "transparent",
@@ -404,6 +465,15 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                   <button onClick={() => snapGridOut(1)} style={gridBtnStyle}>&gt;</button>
                 </div>
               </div>
+            </div>
+            <div className="flex justify-center mt-2">
+              <button
+                onClick={exportToMPC}
+                className="text-[12px] uppercase tracking-[0.15em] px-4 py-1 border"
+                style={{ fontFamily: "var(--font-tech)", color: "#c82828", background: "transparent", borderColor: "#c82828" }}
+              >
+                OUTPUT TO MPC
+              </button>
             </div>
           </div>
         );
