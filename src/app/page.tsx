@@ -441,8 +441,8 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           }}
           placeholder="PASTE YOUTUBE URL"
           disabled={deck.isLoading}
-          className="flex-1 bg-transparent border-2 border-[#555] px-3 py-2 text-[13px] uppercase tracking-wider"
-          style={{ fontFamily: "var(--font-tech)", color: "#fff", outline: "none" }}
+          className="flex-1 bg-transparent border-2 border-[#555] px-3 py-2 text-[13px] uppercase tracking-wider placeholder:text-black"
+          style={{ fontFamily: "var(--font-tech)", color: "#000", outline: "none" }}
         />
         <button
           onClick={() => {
@@ -453,7 +453,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           }}
           disabled={deck.isLoading || !ytUrl.trim()}
           className="border-2 border-[#555] px-3 py-2 text-[12px] uppercase tracking-wider disabled:opacity-30"
-          style={{ fontFamily: "var(--font-tech)", color: "#fff", background: "transparent" }}
+          style={{ fontFamily: "var(--font-tech)", color: "#000", background: "transparent" }}
         >
           {deck.isLoading ? "LOADING..." : "GO"}
         </button>
