@@ -1125,7 +1125,6 @@ function Manual({ onClose }: { onClose: () => void }) {
           <div>
             <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>SYNC + LOCK</div>
             <div>SYNC START: STARTS BOTH DECKS SIMULTANEOUSLY WITH SAMPLE-ACCURATE TIMING.</div>
-            <div>LOCK BPM: DECK A IS THE ALPHA. ADJUSTS DECK B&apos;S SPEED TO MATCH DECK A&apos;S CURRENT BPM. WHILE LOCKED, CHANGES ON DECK A PROPAGATE TO DECK B. CLICK AGAIN TO UNLOCK.</div>
           </div>
           <div>
             <div className="text-[11px] mb-1" style={{ color: "var(--accent-gold)" }}>CROSSFADER</div>
@@ -1176,8 +1175,6 @@ export default function Home() {
   const syncPlay = useRemixStore((s) => s.syncPlay);
   const deckA = useRemixStore((s) => s.deckA);
   const deckB = useRemixStore((s) => s.deckB);
-  const lockBPM = useRemixStore((s) => s.lockBPM);
-  const bpmLocked = useRemixStore((s) => s.bpmLocked);
   const recordArmed = useRemixStore((s) => s.recordArmed);
   const isRecording = useRemixStore((s) => s.isRecording);
   const isConvertingWav = useRemixStore((s) => s.isConvertingWav);
@@ -1309,21 +1306,6 @@ export default function Home() {
                   style={{ width: "60px", height: "44px" }}
                 >
                   <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
-                </button>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="label" style={{ margin: 0, fontSize: "9px", marginBottom: "4px" }}>LOCK BPM</span>
-                <button
-                  onClick={() => lockBPM()}
-                  disabled={!bpmLocked && (!deckA.sourceBuffer || !deckB.sourceBuffer)}
-                  className="rocker-switch"
-                  style={{
-                    width: "60px", height: "44px",
-                    opacity: (!bpmLocked && (!deckA.sourceBuffer || !deckB.sourceBuffer)) ? 0.4 : 1,
-                    boxShadow: bpmLocked ? "inset 0 0 8px rgba(200,169,110,0.3)" : undefined,
-                  }}
-                >
-                  <div className={`w-1.5 h-1.5 rounded-full border-2 ${bpmLocked ? "border-[var(--accent-gold)]" : "border-[#555]"}`} />
                 </button>
               </div>
             </div>
