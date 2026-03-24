@@ -349,8 +349,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
       })()}
 
       {/* Tools menu */}
-      {deck.sourceBuffer && (
-        <div className="relative flex flex-col items-center gap-2">
+      <div className="relative flex flex-col items-start gap-2">
           <button
             onClick={() => setDeckMenuOpen(!deckMenuOpen)}
             className={detailBtnClass(deckMenuOpen)}
@@ -417,7 +416,6 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             </div>
           )}
         </div>
-      )}
 
       {/* Transport buttons */}
       <div className="flex items-center gap-2 justify-center">
@@ -489,7 +487,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
 
       {/* All controls: Speed/Pitch/Vol on top, Reverb/Tone/Sat below */}
       <div className="zone-engraved">
-        <div className="grid grid-cols-3 gap-2" style={{ justifyItems: "center" }}>
+        <div className="grid grid-cols-6 gap-2" style={{ justifyItems: "center" }}>
           <div className="flex flex-col items-center gap-1">
             <div className="relative h-[100px] w-[36px] flex justify-center">
               <div className="slider-track h-full" />
@@ -563,8 +561,6 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             <div className="label" style={{ fontSize: "12px", marginTop: "4px" }}>VOL</div>
             <span className="text-[12px]" style={{ color: "var(--text-dark)" }}>{Math.round(deck.volume * 100)}%</span>
           </div>
-        </div>
-        <div className="grid grid-cols-3 gap-2 mt-4" style={{ justifyItems: "center" }}>
           <div className="flex flex-col items-center gap-1">
             <div className="relative h-[100px] w-[36px] flex justify-center">
               <div className="slider-track h-full" />
