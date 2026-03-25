@@ -107,6 +107,7 @@ interface DeckState {
   sourceBuffer: AudioBuffer | null;
   sourceFilename: string | null;
   sourceFile: File | null;
+  sourceBlob: Blob | null;
   params: SimpleParams;
   isLoading: boolean;
   isPlaying: boolean;
@@ -137,6 +138,7 @@ const defaultDeck = (): DeckState => ({
   sourceBuffer: null,
   sourceFilename: null,
   sourceFile: null,
+  sourceBlob: null,
   params: { ...SIMPLE_DEFAULTS, speed: 0, reverb: 0, tone: 0, saturation: 0, pitch: 0, pitchSpeedLinked: true },
   isLoading: false,
   isPlaying: false,
@@ -794,7 +796,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   loadFile: async (id, file) => {
     const dk = deckKey(id);
     get().stop(id);
-    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, calculatedBPM: null, activeStem: null, stemBuffers: null, stemError: null, sourceFile: file } }));
+    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, calculatedBPM: null, activeStem: null, stemBuffers: null, stemError: null, sourceFile: file, sourceBlob: null } }));
     try {
       const audioBuffer = await decodeFile(file);
       set((s) => ({
@@ -826,6 +828,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           sourceBuffer: audioBuffer,
           sourceFilename: title,
           sourceFile: null,
+          sourceBlob: new Blob([buffer], { type: "audio/mpeg" }),
           isLoading: false,
           regionStart: 0,
           regionEnd: 0,
@@ -1181,63 +1184,16 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     set((s) => ({ [dk]: { ...s[dk], isStemLoading: true, stemError: null } }));
 
     try {
-      let audioBlob: Blob;
+      const formData = new FormData();
+      const fname = deck.sourceFilename || "audio";
       if (deck.sourceFile) {
-        audioBlob = deck.sourceFile;
+        formData.append("audio", deck.sourceFile, fname + ".mp3");
+      } else if (deck.sourceBlob) {
+        formData.append("audio", deck.sourceBlob, fname + ".mp3");
       } else {
-        // Convert AudioBuffer to mono WAV for YouTube/URL-loaded tracks
-        const buf = deck.sourceBuffer!;
-        const sampleRate = buf.sampleRate;
-        const length = buf.length;
-        // Mix to mono
-        const mono = new Float32Array(length);
-        const numCh = buf.numberOfChannels;
-        for (let ch = 0; ch < numCh; ch++) {
-          const chData = buf.getChannelData(ch);
-          for (let i = 0; i < length; i++) mono[i] += chData[i] / numCh;
-        }
-        const wavLength = 44 + length * 2;
-        const wavBuf = new ArrayBuffer(wavLength);
-        const view = new DataView(wavBuf);
-        const writeStr = (offset: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i)); };
-        writeStr(0, 'RIFF'); view.setUint32(4, wavLength - 8, true); writeStr(8, 'WAVE');
-        writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
-        view.setUint16(22, 1, true); view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true);
-        view.setUint16(34, 16, true); writeStr(36, 'data'); view.setUint32(40, length * 2, true);
-        let offset = 44;
-        for (let i = 0; i < length; i++) {
-          const sample = Math.max(-1, Math.min(1, mono[i]));
-          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-          offset += 2;
-        }
-        audioBlob = new Blob([wavBuf], { type: 'audio/wav' });
+        throw new Error("No audio source available for stem separation");
       }
-
-      let res: Response;
-      if (deck.sourceFile) {
-        // Local file — upload via our API
-        const formData = new FormData();
-        formData.append("audio", audioBlob, (deck.sourceFilename || "audio") + ".wav");
-        res = await fetch("/api/stems", { method: "POST", body: formData });
-      } else {
-        // YouTube/URL track — WAV too large for main API. Upload via proxy endpoint first.
-        const upRes = await fetch("/api/stems/upload", {
-          method: "POST",
-          body: audioBlob,
-        });
-        if (!upRes.ok) {
-          const upErr = await upRes.json().catch(() => ({ error: "Upload failed" }));
-          throw new Error(upErr.error || "File upload failed");
-        }
-        const { fileUrl } = await upRes.json();
-        if (!fileUrl) throw new Error("No URL from upload");
-        res = await fetch("/api/stems", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileUrl }),
-        });
-      }
+      const res = await fetch("/api/stems", { method: "POST", body: formData });
 
       if (!res.ok) {
         let msg = "Stem separation failed";

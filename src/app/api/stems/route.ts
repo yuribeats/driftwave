@@ -11,45 +11,36 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    let fileUrl: string;
-    const contentType = req.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      const body = await req.json();
-      fileUrl = body.fileUrl;
-      if (!fileUrl) {
-        return NextResponse.json({ error: "No fileUrl provided" }, { status: 400 });
-      }
-    } else {
-      const formData = await req.formData();
-      const file = formData.get("audio") as File | null;
-      if (!file) {
-        return NextResponse.json({ error: "No audio file" }, { status: 400 });
-      }
-
-      const uploadRes = await fetch("https://api.replicate.com/v1/files", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${REPLICATE_TOKEN}` },
-        body: (() => {
-          const fd = new FormData();
-          fd.append("content", file, file.name || "audio.mp3");
-          return fd;
-        })(),
-      });
-
-      if (!uploadRes.ok) {
-        const text = await uploadRes.text();
-        return NextResponse.json({ error: `File upload failed: ${text}` }, { status: 502 });
-      }
-
-      const uploadData = await uploadRes.json();
-      fileUrl = uploadData.urls?.get;
-
-      if (!fileUrl) {
-        return NextResponse.json({ error: "File upload returned no URL" }, { status: 502 });
-      }
+    const formData = await req.formData();
+    const file = formData.get("audio") as File | null;
+    if (!file) {
+      return NextResponse.json({ error: "No audio file" }, { status: 400 });
     }
 
+    // Upload to Replicate
+    const uploadRes = await fetch("https://api.replicate.com/v1/files", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${REPLICATE_TOKEN}` },
+      body: (() => {
+        const fd = new FormData();
+        fd.append("content", file, file.name || "audio.mp3");
+        return fd;
+      })(),
+    });
+
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text();
+      return NextResponse.json({ error: `File upload failed: ${text}` }, { status: 502 });
+    }
+
+    const uploadData = await uploadRes.json();
+    const fileUrl = uploadData.urls?.get;
+
+    if (!fileUrl) {
+      return NextResponse.json({ error: "File upload returned no URL" }, { status: 502 });
+    }
+
+    // Run Demucs
     const predRes = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
@@ -79,9 +70,7 @@ export async function POST(req: NextRequest) {
       if (Date.now() > deadline) {
         return NextResponse.json({ error: "Stem separation timed out" }, { status: 504 });
       }
-
       await new Promise((r) => setTimeout(r, 3000));
-
       const pollRes = await fetch(pollUrl, {
         headers: { Authorization: `Bearer ${REPLICATE_TOKEN}` },
       });
