@@ -561,9 +561,14 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
       {(deck.isStemLoading || deck.stemError) && (
         <div className="flex flex-col items-center gap-1">
           {deck.isStemLoading && (
-            <span className="text-[12px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
-              SEPARATING VOCALS...
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] animate-pulse" style={{ color: "var(--accent-gold)", fontFamily: "var(--font-tech)", letterSpacing: "0.15em" }}>
+                ISOLATING VOCALS
+              </span>
+              <span className="text-[12px] animate-pulse" style={{ color: "var(--accent-gold)", fontFamily: "var(--font-tech)" }}>
+                &#9679; &#9679; &#9679;
+              </span>
+            </div>
           )}
           {deck.stemError && (
             <span className="text-[12px]" style={{ color: "var(--led-red-on)", fontFamily: "var(--font-tech)" }}>
