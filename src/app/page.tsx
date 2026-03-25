@@ -459,7 +459,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
               <div className="flex-1 flex flex-col items-center gap-0.5">
                 <div className="label" style={{ fontSize: "12px", margin: 0, color: "#c82828" }}>ALIGN</div>
                 <input
-                  type="range" min={-5000} max={5000} step={10}
+                  type="range" min={-10000} max={10000} step={10}
                   value={deck.gridOffsetMs}
                   onChange={(e) => setGridOffset(id, parseFloat(e.target.value))}
                   className="w-full gridlock-slider"
