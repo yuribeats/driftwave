@@ -291,6 +291,7 @@ interface RemixStore {
   playSequencer: () => Promise<void>;
   stopSequencer: () => void;
   lockBPM: () => void;
+  renderToBlob: () => Promise<Blob | null>;
   download: () => Promise<void>;
   exportMP4: () => Promise<void>;
   armRecord: () => void;
@@ -954,28 +955,61 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   lookupEverysong: async (id, artist, title) => {
     if (!artist && !title) return;
     const q = encodeURIComponent(`${artist} ${title}`);
-    const res = await fetch(`/api/everysong?q=${q}`);
-    const data = await res.json();
-    if (data.found) {
-      if (data.bpm) get().setBPM(id, data.bpm);
-      if (data.noteIndex !== null && data.noteIndex !== undefined) {
-        get().setDeckMeta(id, { baseKey: data.noteIndex });
+    console.log(`[lookupEverysong:${id}] querying Everysong for "${artist} ${title}"`);
+    try {
+      const res = await fetch(`/api/everysong?q=${q}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      console.log(`[lookupEverysong:${id}] response:`, data);
+      if (data.found) {
+        if (data.bpm) {
+          console.log(`[lookupEverysong:${id}] setting BPM = ${data.bpm}`);
+          get().setBPM(id, data.bpm);
+        }
+        if (data.noteIndex !== null && data.noteIndex !== undefined) {
+          console.log(`[lookupEverysong:${id}] setting key = noteIndex ${data.noteIndex} (${data.key})`);
+          get().setDeckMeta(id, { baseKey: data.noteIndex });
+        }
+      } else {
+        console.warn(`[lookupEverysong:${id}] no match found for "${artist} ${title}"`);
       }
+    } catch (e) {
+      console.error(`[lookupEverysong:${id}] error:`, e);
     }
     get().setDeckMeta(id, { artist, title });
   },
 
   loadDeck: async (id, artist, title) => {
-    const searchQ = id === "A"
-      ? encodeURIComponent(`${artist} ${title} instrumental`)
-      : encodeURIComponent(`${artist} ${title}`);
+    const searchQuery = id === "A" ? `${artist} ${title} instrumental` : `${artist} ${title}`;
+    console.log(`[loadDeck:${id}] starting — searching YouTube for "${searchQuery}"`);
 
-    const res = await fetch(`/api/youtube/search?q=${searchQ}`);
-    const { url, error } = await res.json();
-    if (error || !url) throw new Error(error || "No results");
+    const searchQ = encodeURIComponent(searchQuery);
+    let url: string;
+    try {
+      const res = await fetch(`/api/youtube/search?q=${searchQ}`);
+      if (!res.ok) throw new Error(`YouTube search HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error || !data.url) throw new Error(data.error || "No YouTube results");
+      url = data.url;
+      console.log(`[loadDeck:${id}] found URL: ${url}`);
+    } catch (e) {
+      console.error(`[loadDeck:${id}] YouTube search failed:`, e);
+      throw e;
+    }
 
-    await get().loadFromYouTube(id, url);
+    try {
+      console.log(`[loadDeck:${id}] loading audio from YouTube`);
+      await get().loadFromYouTube(id, url);
+      console.log(`[loadDeck:${id}] audio loaded`);
+    } catch (e) {
+      console.error(`[loadDeck:${id}] loadFromYouTube failed:`, e);
+      throw e;
+    }
+
+    console.log(`[loadDeck:${id}] running Everysong lookup`);
     await get().lookupEverysong(id, artist, title);
+
+    console.log(`[loadDeck:${id}] running downbeat detection`);
     await get().detectDownbeat(id);
 
     // Set IN point to ML-detected downbeat + enable gridlock anchored there
@@ -983,9 +1017,11 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const updated = getDeck(get(), id);
     if (updated.firstDownbeatMs !== null) {
       const inPoint = updated.firstDownbeatMs / 1000;
+      console.log(`[loadDeck:${id}] downbeat at ${inPoint.toFixed(3)}s — setting IN point + enabling gridlock`);
       get().setRegion(id, inPoint, 0);
       const currentRate = 1.0 + updated.params.speed;
       const lockedDur = updated.calculatedBPM ? 960 / (updated.calculatedBPM * currentRate) : 0;
+      console.log(`[loadDeck:${id}] gridlock: firstTransient=${inPoint.toFixed(3)}s, lockedDur=${lockedDur.toFixed(3)}s, BPM=${updated.calculatedBPM}`);
       set((s) => ({
         [dk]: {
           ...s[dk],
@@ -995,18 +1031,32 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           gridOffsetMs: 0,
         },
       }));
+    } else {
+      console.warn(`[loadDeck:${id}] no downbeat detected — IN point not moved, gridlock not enabled`);
     }
 
     if (id === "B") {
-      await get().separateStems(id);
-      get().setStem(id, "vocals");
+      console.log(`[loadDeck:B] starting stem isolation`);
+      try {
+        await get().separateStems(id);
+        get().setStem(id, "vocals");
+        console.log(`[loadDeck:B] vocals stem active`);
+      } catch (e) {
+        console.error(`[loadDeck:B] stem separation failed:`, e);
+        throw e;
+      }
     }
+
+    console.log(`[loadDeck:${id}] complete`);
   },
 
   detectDownbeat: async (id) => {
     const dk = deckKey(id);
     const deck = getDeck(get(), id);
-    if (!deck.sourceBuffer) return;
+    if (!deck.sourceBuffer) {
+      console.warn(`[detectDownbeat:${id}] no source buffer — skipping`);
+      return;
+    }
 
     set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: true } }));
 
@@ -1018,16 +1068,18 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       if (confirmedBpm) priors.bpm = confirmedBpm;
       if (deck.baseKey !== null) priors.note_index = deck.baseKey;
 
+      console.log(`[detectDownbeat:${id}] priors:`, { confirmedBpm, note_index: deck.baseKey, sourceUrl: deck.sourceUrl });
+
       let res: Response;
       if (deck.sourceUrl) {
-        // YouTube URL — API downloads and uploads to Replicate for Modal to fetch
+        console.log(`[detectDownbeat:${id}] sending YouTube URL to /api/downbeat`);
         res = await fetch("/api/downbeat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ youtubeUrl: deck.sourceUrl, ...priors }),
         });
       } else if (deck.sourceFile) {
-        // Local file — need priors in query params or embed in a JSON wrapper
+        console.log(`[detectDownbeat:${id}] uploading local file to /api/downbeat`);
         const fd = new FormData();
         fd.append("audio", deck.sourceFile);
         if (confirmedBpm) fd.append("bpm", String(confirmedBpm));
@@ -1035,7 +1087,12 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         res = await fetch("/api/downbeat", { method: "POST", body: fd });
       } else {
         const url = deck.sourceFilename;
-        if (!url) return;
+        if (!url) {
+          console.warn(`[detectDownbeat:${id}] no sourceUrl, sourceFile, or filename — cannot detect`);
+          set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: false } }));
+          return;
+        }
+        console.log(`[detectDownbeat:${id}] sending audio URL to /api/downbeat: ${url}`);
         res = await fetch("/api/downbeat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1043,9 +1100,25 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         });
       }
 
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error(`[detectDownbeat:${id}] /api/downbeat HTTP ${res.status}: ${errText}`);
+        set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: false } }));
+        return;
+      }
+
       const data = await res.json();
+      console.log(`[detectDownbeat:${id}] response:`, data);
+
+      if (data.error) {
+        console.error(`[detectDownbeat:${id}] Modal error: ${data.error}`);
+        set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: false } }));
+        return;
+      }
+
       if (data.first_downbeat_ms !== null && data.first_downbeat_ms !== undefined) {
         const firstDownbeatMs = data.first_downbeat_ms as number;
+        console.log(`[detectDownbeat:${id}] first downbeat = ${firstDownbeatMs}ms (${(firstDownbeatMs/1000).toFixed(3)}s), BPM=${data.bpm}, beats=${data.beats_ms?.length}`);
         set((s) => ({
           [dk]: {
             ...s[dk],
@@ -1057,14 +1130,20 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         }));
         // Apply ML-detected BPM and key if Everysong hasn't already populated them
         const updated = getDeck(get(), id);
-        if (data.bpm && !updated.calculatedBPM) get().setBPM(id, data.bpm);
+        if (data.bpm && !updated.calculatedBPM) {
+          console.log(`[detectDownbeat:${id}] applying ML BPM = ${data.bpm} (Everysong not available)`);
+          get().setBPM(id, data.bpm);
+        }
         if (data.note_index !== null && data.note_index !== undefined && updated.baseKey === null) {
+          console.log(`[detectDownbeat:${id}] applying ML key = noteIndex ${data.note_index}`);
           get().setDeckMeta(id, { baseKey: data.note_index });
         }
       } else {
+        console.warn(`[detectDownbeat:${id}] no downbeat returned from Modal`);
         set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: false } }));
       }
-    } catch {
+    } catch (e) {
+      console.error(`[detectDownbeat:${id}] unexpected error:`, e);
       set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: false } }));
     }
   },
@@ -1673,6 +1752,22 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     }
 
     set({ bpmLocked: true });
+  },
+
+  renderToBlob: async () => {
+    console.log("[renderToBlob] starting offline render");
+    try {
+      const blob = await renderMixToWAV(get);
+      if (!blob) {
+        console.warn("[renderToBlob] no audio loaded — returning null");
+        return null;
+      }
+      console.log(`[renderToBlob] complete — ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+      return blob;
+    } catch (e) {
+      console.error("[renderToBlob] offline render failed:", e);
+      return null;
+    }
   },
 
   download: async () => {
