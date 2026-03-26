@@ -1429,24 +1429,28 @@ export default function Home() {
 
           {/* Auto-load: artist + title → instrumental + acapella */}
           <div className="flex gap-2 boot-stagger boot-delay-2">
-            <input
-              type="text"
-              value={autoArtist}
-              onChange={(e) => setAutoArtist(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAutoLoad()}
-              placeholder="ARTIST"
-              className="flex-1 bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
-              style={{ fontFamily: "var(--font-tech)", color: "#000" }}
-            />
-            <input
-              type="text"
-              value={autoTitle}
-              onChange={(e) => setAutoTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAutoLoad()}
-              placeholder="TITLE"
-              className="flex-1 bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
-              style={{ fontFamily: "var(--font-tech)", color: "#000" }}
-            />
+            <div className="flex-1 flex flex-col gap-0.5">
+              <span className="text-[10px] tracking-[1px]" style={{ fontFamily: "var(--font-tech)", color: "#000" }}>ARTIST</span>
+              <input
+                type="text"
+                value={autoArtist}
+                onChange={(e) => setAutoArtist(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAutoLoad()}
+                className="w-full bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
+                style={{ fontFamily: "var(--font-tech)", color: "#000" }}
+              />
+            </div>
+            <div className="flex-1 flex flex-col gap-0.5">
+              <span className="text-[10px] tracking-[1px]" style={{ fontFamily: "var(--font-tech)", color: "#000" }}>TITLE</span>
+              <input
+                type="text"
+                value={autoTitle}
+                onChange={(e) => setAutoTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAutoLoad()}
+                className="w-full bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
+                style={{ fontFamily: "var(--font-tech)", color: "#000" }}
+              />
+            </div>
             <button
               onClick={handleAutoLoad}
               disabled={autoLoading || (!autoArtist && !autoTitle)}

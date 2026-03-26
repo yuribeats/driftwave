@@ -954,26 +954,35 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: true } }));
 
     try {
+      // Pass confirmed BPM and key from Everysong as priors to constrain the DBN
+      const rate = 1.0 + deck.params.speed;
+      const confirmedBpm = deck.calculatedBPM ? deck.calculatedBPM * rate : null;
+      const priors: Record<string, unknown> = {};
+      if (confirmedBpm) priors.bpm = confirmedBpm;
+      if (deck.baseKey !== null) priors.note_index = deck.baseKey;
+
       let res: Response;
       if (deck.sourceUrl) {
         // YouTube URL — API downloads and uploads to Replicate for Modal to fetch
         res = await fetch("/api/downbeat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ youtubeUrl: deck.sourceUrl }),
+          body: JSON.stringify({ youtubeUrl: deck.sourceUrl, ...priors }),
         });
       } else if (deck.sourceFile) {
+        // Local file — need priors in query params or embed in a JSON wrapper
         const fd = new FormData();
         fd.append("audio", deck.sourceFile);
+        if (confirmedBpm) fd.append("bpm", String(confirmedBpm));
+        if (deck.baseKey !== null) fd.append("note_index", String(deck.baseKey));
         res = await fetch("/api/downbeat", { method: "POST", body: fd });
       } else {
-        // Pinata or other accessible URL
         const url = deck.sourceFilename;
         if (!url) return;
         res = await fetch("/api/downbeat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioUrl: url }),
+          body: JSON.stringify({ audioUrl: url, ...priors }),
         });
       }
 

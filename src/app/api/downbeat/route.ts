@@ -53,31 +53,39 @@ export async function POST(req: NextRequest) {
 
   try {
     let audioUrl: string;
+    const priors: Record<string, unknown> = {};
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("application/json")) {
       const body = await req.json();
+      if (body.bpm)        priors.bpm        = body.bpm;
+      if (body.note_index !== undefined) priors.note_index = body.note_index;
+      if (body.mode)       priors.mode       = body.mode;
+
       if (body.youtubeUrl) {
         const mp3 = await downloadYouTubeMP3(body.youtubeUrl);
         audioUrl = await uploadToReplicate(mp3, "audio.mp3");
       } else if (body.audioUrl) {
-        // Already an accessible URL (Pinata, etc.) — pass directly to Modal
         audioUrl = body.audioUrl;
       } else {
         return NextResponse.json({ error: "Missing youtubeUrl or audioUrl" }, { status: 400 });
       }
     } else {
-      // Local file upload
+      // Local file upload — priors come as form fields
       const formData = await req.formData();
       const file = formData.get("audio") as File | null;
       if (!file) return NextResponse.json({ error: "No audio file" }, { status: 400 });
+      const bpmField = formData.get("bpm");
+      const niField  = formData.get("note_index");
+      if (bpmField)  priors.bpm        = parseFloat(String(bpmField));
+      if (niField)   priors.note_index = parseInt(String(niField), 10);
       audioUrl = await uploadToReplicate(await file.arrayBuffer(), file.name || "audio.wav");
     }
 
     const res = await fetch(modalUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ audio_url: audioUrl }),
+      body: JSON.stringify({ audio_url: audioUrl, ...priors }),
     });
 
     const data = await res.json();
