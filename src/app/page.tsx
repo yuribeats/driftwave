@@ -188,9 +188,12 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           >
             DECK {id}
           </span>
-          <button onClick={handleLoad} disabled={deck.isLoading} className="rocker-switch" style={{ width: "28px", height: "28px" }}>
-            <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
-          </button>
+          <div className="flex flex-col items-center gap-0.5">
+            <button onClick={handleLoad} disabled={deck.isLoading} className="rocker-switch" style={{ width: "28px", height: "28px" }}>
+              <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
+            </button>
+            <span className="text-[8px] tracking-[1px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>LOCAL</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {onHide && (
