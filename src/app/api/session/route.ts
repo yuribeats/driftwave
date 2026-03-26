@@ -26,18 +26,18 @@ export async function POST(req: NextRequest) {
     const id = Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 10);
     const gateway = process.env.PINATA_GATEWAY!;
 
-    // Upload local audio files to Pinata
+    // Upload local audio files to Pinata — use public IPFS gateway so new devices can fetch without auth
     if (audioA && session.deckA) {
       const upload = await pinata.upload.public.file(audioA)
         .name(`session-${id}-a`)
         .keyvalues({ type: "driftwave-session-audio", sessionId: id });
-      session.deckA.audioUrl = `https://${gateway}/files/${upload.cid}`;
+      session.deckA.audioUrl = `https://gateway.pinata.cloud/ipfs/${upload.cid}`;
     }
     if (audioB && session.deckB) {
       const upload = await pinata.upload.public.file(audioB)
         .name(`session-${id}-b`)
         .keyvalues({ type: "driftwave-session-audio", sessionId: id });
-      session.deckB.audioUrl = `https://${gateway}/files/${upload.cid}`;
+      session.deckB.audioUrl = `https://gateway.pinata.cloud/ipfs/${upload.cid}`;
     }
 
     // Store session as a JSON file on Pinata

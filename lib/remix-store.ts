@@ -925,9 +925,12 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           title: (d.title as string) || "",
           baseKey: (d.baseKey as number | null) ?? null,
         });
+        const dk = deckKey(id);
         if (d.calculatedBPM) {
-          const dk = deckKey(id);
           set((s) => ({ [dk]: { ...s[dk], calculatedBPM: d.calculatedBPM as number } }));
+        }
+        if (d.activeStem) {
+          get().setStem(id, d.activeStem as StemType);
         }
       };
 
