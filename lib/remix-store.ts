@@ -6,6 +6,7 @@ import {
   renderOffline,
   encodeWAV,
 } from "@yuribeats/audio-utils";
+import { BatchStyle, BATCH_PRESETS } from "./batch-presets";
 import { decodeFile, decodeArrayBuffer } from "./file-decoder";
 import { getAudioContext, ensurePitchWorklet, isPitchWorkletReady } from "./audio-context";
 
@@ -291,6 +292,7 @@ interface RemixStore {
   playSequencer: () => Promise<void>;
   stopSequencer: () => void;
   lockBPM: () => void;
+  applyStylePreset: (style: BatchStyle) => void;
   renderToBlob: () => Promise<Blob | null>;
   download: () => Promise<void>;
   exportMP4: () => Promise<void>;
@@ -1752,6 +1754,16 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     }
 
     set({ bpmLocked: true });
+  },
+
+  applyStylePreset: (style) => {
+    const preset = BATCH_PRESETS[style];
+    for (const [k, v] of Object.entries(preset)) {
+      if (v !== undefined) {
+        get().setParam("A", k as keyof SimpleParams, v as number | boolean);
+        get().setParam("B", k as keyof SimpleParams, v as number | boolean);
+      }
+    }
   },
 
   renderToBlob: async () => {
