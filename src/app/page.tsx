@@ -1119,74 +1119,92 @@ function Manual({ onClose }: { onClose: () => void }) {
           <span className="text-sm tracking-[2px] uppercase" style={{ color: "var(--text-dark)", fontFamily: "var(--font-display)" }}>MANUAL</span>
           <button onClick={onClose} className={detailBtnClass(false)} style={detailBtnStyle}>CLOSE</button>
         </div>
-        <div className="flex flex-col gap-3 text-[12px] leading-[1.6]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+        <div className="flex flex-col gap-5 text-[12px] leading-[1.6]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>LOADING TRACKS</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>LOADING TRACKS</div>
             <div>LOAD A TRACK INTO A DECK USING THE LOAD BUTTON (LOCAL FILE) OR PASTE A YOUTUBE URL AND HIT GO. EACH DECK HAS INDEPENDENT CONTROLS FOR SPEED, PITCH, VOLUME, REVERB, TONE, AND SATURATION.</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>TWO DECKS</div>
-            <div>STARTS WITH ONE DECK. HIT ADD A SECOND DECK TO SHOW DECK B. CLICK (HIDE) ON DECK B TO COLLAPSE BACK TO SINGLE DECK. SYNC CONTROLS AND CROSSFADER ONLY APPEAR WHEN BOTH DECKS ARE VISIBLE.</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>TWO DECKS</div>
+            <div>STARTS WITH ONE DECK. HIT ADD A SECOND DECK TO SHOW DECK B. CLICK HIDE ON DECK B TO COLLAPSE BACK TO SINGLE DECK. SYNC CONTROLS AND CROSSFADER ONLY APPEAR WHEN BOTH DECKS ARE VISIBLE.</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>SPEED + PITCH</div>
-            <div>LINKED (DEFAULT): SPEED AND PITCH MOVE TOGETHER LIKE A TURNTABLE. VARISPEED.</div>
-            <div>UNLINKED: SPEED CHANGES TEMPO WITHOUT AFFECTING PITCH. PITCH SHIFTS WITHOUT AFFECTING TEMPO.</div>
-            <div>STEP: SNAPS PITCH TO SEMITONE INTERVALS.</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>SPEED + PITCH</div>
+            <div className="mb-1">SPEED AND PITCH ARE TWO SEPARATE PARAMETERS. SPEED CONTROLS PLAYBACK RATE. PITCH CONTROLS PITCH SHIFT. THEY ARE STORED AND APPLIED INDEPENDENTLY.</div>
+            <div className="mb-1">THE LINK BUTTON COUPLES THEM IN THE UI. TOGGLING LINK DOES NOT CHANGE EITHER VALUE — IT ONLY CHANGES HOW THE SLIDERS BEHAVE FROM THAT POINT FORWARD.</div>
+            <div className="mb-1">LINKED (DEFAULT — VARISPEED): MOVING THE SPEED SLIDER UPDATES BOTH SPEED AND PITCH ATOMICALLY SO THEY STAY IN SYNC. PITCH FOLLOWS SPEED LIKE A TAPE DECK. NET PITCH CORRECTION IS 1.0 — THE AUDIO IS NOT PROCESSED, JUST PLAYED AT A DIFFERENT RATE.</div>
+            <div className="mb-1">UNLINKED: SPEED AND PITCH MOVE INDEPENDENTLY. SPEED CHANGES TEMPO WITHOUT AFFECTING PITCH. PITCH SHIFTS WITHOUT AFFECTING TEMPO. THE PITCH SHIFTER (RUBBER BAND) APPLIES THE DIFFERENCE BETWEEN WHERE PITCH IS AND WHERE SPEED WOULD PUT IT.</div>
+            <div className="mb-1">RELINKING: IF YOU UNLINK, ADJUST PITCH, THEN RELINK — BOTH VALUES ARE PRESERVED EXACTLY AS YOU LEFT THEM. THE FIRST TIME YOU MOVE THE SPEED SLIDER AFTER RELINKING, PITCH WILL SYNC TO MATCH THE NEW SPEED. UNTIL THEN, NOTHING CHANGES.</div>
+            <div>STEP: SNAPS PITCH TO SEMITONE INTERVALS. ONLY AVAILABLE WHEN UNLINKED.</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>LOOP FINE-TUNE</div>
-            <div>WHEN A REGION IS SELECTED, IN/OUT NUDGE BUTTONS APPEAR. USE &lt; AND &gt; TO NUDGE LOOP BOUNDARIES. STEP SIZE SLIDER ADJUSTS FROM 0.1MS TO 1S (LOGARITHMIC).</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>MATCH LEN</div>
+            <div className="mb-1">ADJUSTS THE PLAYBACK SPEED OF BOTH DECKS SO THEIR SELECTED REGIONS ARE THE SAME LENGTH IN SECONDS. BOTH DECKS MOVE TOWARD A GEOMETRIC MEAN — NEITHER ONE IS TREATED AS THE REFERENCE.</div>
+            <div>THIS OPERATES ON SPEED ONLY AND DOES NOT AFFECT PITCH. BOTH DECKS ARE UNLINKED BEFORE THE SPEED VALUES ARE SET.</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>PIANO KEYBOARD</div>
-            <div>ONE OCTAVE SINE WAVE GENERATOR FOR FINDING THE KEY BY EAR. OVERLAY A NOTE ON YOUR SAMPLE. OCTAVE UP/DOWN BUTTONS. LATCH HOLDS A NOTE UNTIL YOU PRESS ANOTHER OR THE SAME KEY AGAIN.</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>EFFECTS CHAIN</div>
+            <div className="mb-1">EACH DECK RUNS: SOURCE → EQ → SATURATION → REVERB → OUTPUT.</div>
+            <div className="mb-1">REVERB DETAIL: WET LEVEL, SIZE (ROOM DURATION), DECAY.</div>
+            <div className="mb-1">TONE DETAIL: 5-BAND PARAMETRIC EQ — LOW SHELF, MID, HIGH SHELF, FREQUENCY SWEEP, PEAK GAIN.</div>
+            <div>SAT DETAIL: DRIVE (WAVESHAPER AGGRESSIVENESS), MIX (DRY/WET BLEND), TONE (POST-SATURATION LOWPASS).</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>SYNC + LOCK</div>
-            <div>SYNC START: STARTS BOTH DECKS SIMULTANEOUSLY WITH SAMPLE-ACCURATE TIMING.</div>
-          </div>
-          <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>CROSSFADER</div>
-            <div>CENTER = BOTH DECKS FULL VOLUME. LEFT = DECK A ONLY. RIGHT = DECK B ONLY. ONLY VISIBLE WHEN BOTH DECKS ARE SHOWING.</div>
-          </div>
-          <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>RECORDING</div>
-            <div>ARM THE REC BUTTON (APPEARS WITH BOTH DECKS). RECORDING STARTS ON SYNC START AND CAPTURES THE LIVE MIX. WHEN DECK A STOPS, THE RECORDING ENDS AND THE MP4 EXPORT MODAL OPENS AUTOMATICALLY.</div>
-          </div>
-          <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>EXPORT</div>
-            <div>HIT EXPORT IN THE HEADER TO RENDER DECK A&apos;S AUDIO WITH ALL EFFECTS APPLIED. ENTER ARTIST AND TITLE. THE VIDEO IS GENERATED WITH RANDOM COVER ART AND STORED ON PINATA. DOWNLOADS AUTOMATICALLY.</div>
-          </div>
-          <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>GALLERY</div>
-            <div>ALL EXPORTED MP4S ARE SAVED TO THE GALLERY. ACCESS IT FROM THE GALLERY LINK IN THE HEADER.</div>
-          </div>
-          <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>STEM ISOLATION</div>
-            <div>CLICK ISOLATE VOCALS TO SEPARATE VOCALS USING ML (DEMUCS). FIRST USE TAKES 30-60 SECONDS. CLICK AGAIN TO TOGGLE OFF.</div>
-          </div>
-          <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>OUTPUT BUS</div>
-            <div>MASTER EQ (LOW/MID/HIGH), COMPRESSOR, AND LIMITER ON THE FINAL MIX. EACH HAS A DETAIL PANEL FOR FINE CONTROL.</div>
-            <div>COMP: SINGLE KNOB MAPS TO THRESHOLD + RATIO + MAKEUP. DETAIL OVERRIDES INDIVIDUAL PARAMS.</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>OUTPUT BUS</div>
+            <div className="mb-1">MASTER EQ (LOW/MID/HIGH), COMPRESSOR, AND LIMITER ON THE FINAL MIX. EACH HAS A DETAIL PANEL.</div>
+            <div className="mb-1">COMP: SINGLE KNOB MAPS TO THRESHOLD + RATIO + MAKEUP GAIN TOGETHER. DETAIL PANEL OVERRIDES INDIVIDUAL PARAMS.</div>
             <div>LIMIT: BRICK-WALL LIMITER AFTER THE COMPRESSOR. DETAIL CONTROLS CEILING, RELEASE, AND KNEE.</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>EFFECT DETAILS</div>
-            <div>REVERB DETAIL: WET/DRY, SIZE (DURATION), DECAY.</div>
-            <div>TONE DETAIL: 5-BAND PARAMETRIC EQ (LOW, MID, HIGH, FREQ SWEEP, PEAK GAIN).</div>
-            <div>SAT DETAIL: DRIVE, MIX, TONE (POST-SATURATION FILTER).</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>LOOP FINE-TUNE</div>
+            <div>WHEN A REGION IS SELECTED, IN/OUT NUDGE BUTTONS APPEAR. USE &lt; AND &gt; TO NUDGE LOOP BOUNDARIES. STEP SIZE SLIDER ADJUSTS FROM 0.1MS TO 1S (LOGARITHMIC).</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>GRIDLOCK</div>
-            <div>TOGGLE FROM TOOLS MENU. OVERLAYS RED GRID LINES EVERY 4 BARS BASED ON BPM. ALIGN SLIDER SHIFTS ALL LINES UNIFORMLY. GRID IN/OUT ARROWS SNAP REGION TO GRID LINES. SHOWS SECTION COUNT AND SPACING IN MS. OUTPUT TO MPC SENDS GRID SECTIONS TO THE STUDIO MPC. THE LAST MPC PAD IS ALWAYS THE FULL LOOP FROM IN TO OUT.</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>PIANO KEYBOARD</div>
+            <div>ONE OCTAVE SINE WAVE GENERATOR FOR FINDING THE KEY BY EAR. OCTAVE UP/DOWN BUTTONS. LATCH HOLDS A NOTE UNTIL YOU PRESS ANOTHER OR THE SAME KEY AGAIN.</div>
           </div>
+
           <div>
-            <div className="text-[12px] mb-1" style={{ color: "var(--accent-gold)" }}>KEYBOARD SHORTCUTS</div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>SYNC + CROSSFADER</div>
+            <div className="mb-1">SYNC START: STARTS BOTH DECKS SIMULTANEOUSLY WITH SAMPLE-ACCURATE TIMING.</div>
+            <div>CROSSFADER: CENTER = BOTH DECKS FULL VOLUME. LEFT = DECK A ONLY. RIGHT = DECK B ONLY.</div>
+          </div>
+
+          <div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>RECORDING</div>
+            <div>ARM THE REC BUTTON. RECORDING STARTS ON SYNC START AND CAPTURES THE LIVE MIX. WHEN DECK A STOPS, RECORDING ENDS AND THE EXPORT MODAL OPENS AUTOMATICALLY.</div>
+          </div>
+
+          <div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>EXPORT</div>
+            <div className="mb-1">HIT EXPORT IN THE HEADER TO RENDER DECK A WITH ALL EFFECTS APPLIED. ENTER ARTIST AND TITLE. THE VIDEO IS GENERATED WITH COVER ART AND STORED ON PINATA. DOWNLOADS AUTOMATICALLY.</div>
+            <div>ALL EXPORTS ARE SAVED TO THE GALLERY.</div>
+          </div>
+
+          <div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>STEM ISOLATION</div>
+            <div>CLICK ISOLATE VOCALS TO SEPARATE VOCALS USING ML (DEMUCS). FIRST USE TAKES 30–60 SECONDS. CLICK AGAIN TO TOGGLE OFF.</div>
+          </div>
+
+          <div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>GRIDLOCK</div>
+            <div>TOGGLE FROM TOOLS MENU. OVERLAYS RED GRID LINES EVERY 4 BARS BASED ON BPM. ALIGN SLIDER SHIFTS ALL LINES UNIFORMLY. GRID IN/OUT ARROWS SNAP REGION TO GRID LINES. OUTPUT TO MPC SENDS GRID SECTIONS TO THE STUDIO MPC. THE LAST MPC PAD IS ALWAYS THE FULL LOOP FROM IN TO OUT.</div>
+          </div>
+
+          <div>
+            <div className="text-[12px] mb-2" style={{ color: "var(--accent-gold)" }}>KEYBOARD SHORTCUTS</div>
             <div>+ / - : ZOOM WAVEFORM IN/OUT</div>
             <div>F : ZOOM TO FIT SELECTED REGION</div>
           </div>
+
         </div>
       </div>
     </div>
