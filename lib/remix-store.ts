@@ -263,6 +263,8 @@ interface RemixStore {
   setDeckMeta: (deck: DeckId, meta: { artist?: string; title?: string; baseKey?: number | null }) => void;
   restoreSession: (sessionId: string) => Promise<void>;
   autoLoad: (artist: string, title: string) => Promise<void>;
+  lookupEverysong: (deck: DeckId, artist: string, title: string) => Promise<void>;
+  loadDeck: (deck: DeckId, artist: string, title: string) => Promise<void>;
   detectDownbeat: (deck: DeckId) => Promise<void>;
   play: (deck: DeckId, forceLoop?: boolean) => Promise<void>;
   stop: (deck: DeckId) => void;
@@ -947,6 +949,58 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         get().setStem("B", "vocals");
       })(),
     ]);
+  },
+
+  lookupEverysong: async (id, artist, title) => {
+    if (!artist && !title) return;
+    const q = encodeURIComponent(`${artist} ${title}`);
+    const res = await fetch(`/api/everysong?q=${q}`);
+    const data = await res.json();
+    if (data.found) {
+      if (data.bpm) get().setBPM(id, data.bpm);
+      if (data.noteIndex !== null && data.noteIndex !== undefined) {
+        get().setDeckMeta(id, { baseKey: data.noteIndex });
+      }
+    }
+    get().setDeckMeta(id, { artist, title });
+  },
+
+  loadDeck: async (id, artist, title) => {
+    const searchQ = id === "A"
+      ? encodeURIComponent(`${artist} ${title} instrumental`)
+      : encodeURIComponent(`${artist} ${title}`);
+
+    const res = await fetch(`/api/youtube/search?q=${searchQ}`);
+    const { url, error } = await res.json();
+    if (error || !url) throw new Error(error || "No results");
+
+    await get().loadFromYouTube(id, url);
+    await get().lookupEverysong(id, artist, title);
+    await get().detectDownbeat(id);
+
+    // Set IN point to ML-detected downbeat + enable gridlock anchored there
+    const dk = deckKey(id);
+    const updated = getDeck(get(), id);
+    if (updated.firstDownbeatMs !== null) {
+      const inPoint = updated.firstDownbeatMs / 1000;
+      get().setRegion(id, inPoint, 0);
+      const currentRate = 1.0 + updated.params.speed;
+      const lockedDur = updated.calculatedBPM ? 960 / (updated.calculatedBPM * currentRate) : 0;
+      set((s) => ({
+        [dk]: {
+          ...s[dk],
+          gridlockEnabled: true,
+          gridFirstTransient: inPoint,
+          gridLockedSectionDur: lockedDur,
+          gridOffsetMs: 0,
+        },
+      }));
+    }
+
+    if (id === "B") {
+      await get().separateStems(id);
+      get().setStem(id, "vocals");
+    }
   },
 
   detectDownbeat: async (id) => {

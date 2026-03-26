@@ -93,7 +93,27 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const setGridOffset = useRemixStore((s) => s.setGridOffset);
   const lockGridSectionDur = useRemixStore((s) => s.lockGridSectionDur);
   const detectDownbeat = useRemixStore((s) => s.detectDownbeat);
+  const loadDeck = useRemixStore((s) => s.loadDeck);
+  const lookupEverysong = useRemixStore((s) => s.lookupEverysong);
   const recordArmed = useRemixStore((s) => s.recordArmed);
+
+  const [deckArtist, setDeckArtist] = useState("");
+  const [deckTitle, setDeckTitle] = useState("");
+  const [deckLoading, setDeckLoading] = useState(false);
+  const [deckLoadError, setDeckLoadError] = useState("");
+
+  const handleDeckLoad = useCallback(async () => {
+    if (!deckArtist && !deckTitle) return;
+    setDeckLoading(true);
+    setDeckLoadError("");
+    try {
+      await loadDeck(id, deckArtist, deckTitle);
+    } catch (e) {
+      setDeckLoadError(e instanceof Error ? e.message : "LOAD FAILED");
+      setTimeout(() => setDeckLoadError(""), 4000);
+    }
+    setDeckLoading(false);
+  }, [loadDeck, id, deckArtist, deckTitle]);
 
   // Clear key and BPM when source changes
   const sourceId = deck.sourceBuffer ? deck.sourceFilename : null;
@@ -210,6 +230,44 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           <div className="led-cutout">
             <div className={`led-rect ${deck.isPlaying ? "led-green-on" : deck.sourceBuffer ? "led-green-on" : "led-green"}`} />
           </div>
+        </div>
+      </div>
+
+      {/* Per-deck artist + title + load */}
+      <div className="flex gap-2">
+        <div className="flex-1 flex flex-col gap-0.5">
+          <span className="text-[10px] tracking-[1px]" style={{ fontFamily: "var(--font-tech)", color: "#000" }}>ARTIST</span>
+          <input
+            type="text"
+            value={deckArtist}
+            onChange={(e) => setDeckArtist(e.target.value)}
+            onBlur={() => { if (deckArtist || deckTitle) lookupEverysong(id, deckArtist, deckTitle); }}
+            onKeyDown={(e) => e.key === "Enter" && handleDeckLoad()}
+            className="w-full bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
+            style={{ fontFamily: "var(--font-tech)", color: "#000" }}
+          />
+        </div>
+        <div className="flex-1 flex flex-col gap-0.5">
+          <span className="text-[10px] tracking-[1px]" style={{ fontFamily: "var(--font-tech)", color: "#000" }}>TITLE</span>
+          <input
+            type="text"
+            value={deckTitle}
+            onChange={(e) => setDeckTitle(e.target.value)}
+            onBlur={() => { if (deckArtist || deckTitle) lookupEverysong(id, deckArtist, deckTitle); }}
+            onKeyDown={(e) => e.key === "Enter" && handleDeckLoad()}
+            className="w-full bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
+            style={{ fontFamily: "var(--font-tech)", color: "#000" }}
+          />
+        </div>
+        <div className="flex flex-col justify-end">
+          <button
+            onClick={handleDeckLoad}
+            disabled={deckLoading || (!deckArtist && !deckTitle)}
+            className={detailBtnClass(false)}
+            style={{ ...detailBtnStyle, opacity: (!deckArtist && !deckTitle) ? 0.3 : 1, color: deckLoadError ? "var(--led-red-on)" : "var(--accent-gold)" }}
+          >
+            {deckLoading ? "..." : deckLoadError || "LOAD"}
+          </button>
         </div>
       </div>
 
@@ -1272,26 +1330,8 @@ export default function Home() {
   const exportMP4 = useRemixStore((s) => s.exportMP4);
   const isExporting = useRemixStore((s) => s.isExporting);
   const restoreSession = useRemixStore((s) => s.restoreSession);
-  const autoLoad = useRemixStore((s) => s.autoLoad);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
-  const [autoArtist, setAutoArtist] = useState("");
-  const [autoTitle, setAutoTitle] = useState("");
-  const [autoLoading, setAutoLoading] = useState(false);
-  const [autoError, setAutoError] = useState("");
-
-  const handleAutoLoad = async () => {
-    if (!autoArtist && !autoTitle) return;
-    setAutoLoading(true);
-    setAutoError("");
-    try {
-      await autoLoad(autoArtist, autoTitle);
-    } catch (e) {
-      setAutoError(e instanceof Error ? e.message : "LOAD FAILED");
-      setTimeout(() => setAutoError(""), 4000);
-    }
-    setAutoLoading(false);
-  };
 
   // Restore shared session on load
   useEffect(() => {
@@ -1425,40 +1465,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Auto-load: artist + title → instrumental + acapella */}
-          <div className="flex gap-2 boot-stagger boot-delay-2">
-            <div className="flex-1 flex flex-col gap-0.5">
-              <span className="text-[10px] tracking-[1px]" style={{ fontFamily: "var(--font-tech)", color: "#000" }}>ARTIST</span>
-              <input
-                type="text"
-                value={autoArtist}
-                onChange={(e) => setAutoArtist(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAutoLoad()}
-                className="w-full bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
-                style={{ fontFamily: "var(--font-tech)", color: "#000" }}
-              />
-            </div>
-            <div className="flex-1 flex flex-col gap-0.5">
-              <span className="text-[10px] tracking-[1px]" style={{ fontFamily: "var(--font-tech)", color: "#000" }}>TITLE</span>
-              <input
-                type="text"
-                value={autoTitle}
-                onChange={(e) => setAutoTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAutoLoad()}
-                className="w-full bg-transparent border border-[#555] px-3 py-1.5 text-[11px] tracking-[1px] outline-none focus:border-[#888]"
-                style={{ fontFamily: "var(--font-tech)", color: "#000" }}
-              />
-            </div>
-            <button
-              onClick={handleAutoLoad}
-              disabled={autoLoading || (!autoArtist && !autoTitle)}
-              className={detailBtnClass(false)}
-              style={{ ...detailBtnStyle, opacity: (!autoArtist && !autoTitle) ? 0.3 : 1, color: autoError ? "var(--led-red-on)" : "var(--accent-gold)" }}
-            >
-              {autoLoading ? "..." : autoError || "LOAD"}
-            </button>
           </div>
 
           {/* Decks */}
