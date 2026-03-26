@@ -96,32 +96,26 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
 
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupKey, setLookupKey] = useState<string | null>(null);
-  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced everysong lookup when artist + title are both non-empty
-  useEffect(() => {
-    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+  const runLookup = useCallback(async () => {
     const q = [deck.artist, deck.title].filter(Boolean).join(" ").trim();
-    if (!q) { setLookupKey(null); return; }
-    lookupTimer.current = setTimeout(async () => {
-      setLookupLoading(true);
-      try {
-        const res = await fetch(`/api/everysong?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        if (data.found) {
-          if (data.bpm) {
-            setBPM(id, data.bpm);
-            setUserBPM(String(data.bpm));
-          }
-          if (data.noteIndex !== null) setDeckMeta(id, { baseKey: data.noteIndex });
-          setLookupKey(data.key ?? null);
-        } else {
-          setLookupKey(null);
+    if (!q) return;
+    setLookupLoading(true);
+    try {
+      const res = await fetch(`/api/everysong?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data.found) {
+        if (data.bpm) {
+          setBPM(id, data.bpm);
+          setUserBPM(String(data.bpm));
         }
-      } catch { setLookupKey(null); }
-      setLookupLoading(false);
-    }, 700);
-    return () => { if (lookupTimer.current) clearTimeout(lookupTimer.current); };
+        if (data.noteIndex !== null) setDeckMeta(id, { baseKey: data.noteIndex });
+        setLookupKey(data.key ?? null);
+      } else {
+        setLookupKey(null);
+      }
+    } catch { setLookupKey(null); }
+    setLookupLoading(false);
   }, [deck.artist, deck.title, id, setBPM, setDeckMeta]);
 
   // Clear key and BPM when source changes
@@ -249,6 +243,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           type="text"
           value={deck.artist}
           onChange={(e) => setDeckMeta(id, { artist: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && runLookup()}
           placeholder="ARTIST"
           className="flex-1 bg-transparent border border-[#333] px-2 py-1 text-[10px] tracking-[1px] outline-none focus:border-[#666]"
           style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}
@@ -257,16 +252,19 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           type="text"
           value={deck.title}
           onChange={(e) => setDeckMeta(id, { title: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && runLookup()}
           placeholder="TITLE"
           className="flex-1 bg-transparent border border-[#333] px-2 py-1 text-[10px] tracking-[1px] outline-none focus:border-[#666]"
           style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}
         />
-        {lookupLoading && (
-          <span className="text-[9px] self-center tracking-[1px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>...</span>
-        )}
-        {!lookupLoading && lookupKey && (
-          <span className="text-[9px] self-center tracking-[1px]" style={{ color: "var(--accent-gold)", fontFamily: "var(--font-tech)" }}>✓</span>
-        )}
+        <button
+          onClick={runLookup}
+          disabled={lookupLoading || (!deck.artist && !deck.title)}
+          className={detailBtnClass(false)}
+          style={{ ...detailBtnStyle, opacity: (!deck.artist && !deck.title) ? 0.3 : 1 }}
+        >
+          {lookupLoading ? "..." : lookupKey ? "✓" : "GO"}
+        </button>
       </div>
 
       {/* CRT status */}
