@@ -157,7 +157,7 @@ function buildGraph(
   // Pitch shifter (worklet) — inserted before EQ when unlinked
   let pitchShifter: AudioWorkletNode | null = null;
   if (!expanded.pitchSpeedLinked && isPitchWorkletReady()) {
-    pitchShifter = new AudioWorkletNode(ctx, "pitch-shifter-processor");
+    pitchShifter = new AudioWorkletNode(ctx, "soundtouch-processor");
     const pf = expanded.pitchFactor / expanded.rate;
     pitchShifter.port.postMessage({ pitchFactor: pf });
   }

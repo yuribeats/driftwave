@@ -471,7 +471,7 @@ function buildDeckGraph(
   // Pitch shifter worklet (unlinked mode only)
   let pitchShifter: AudioWorkletNode | null = null;
   if (!expanded.pitchSpeedLinked && isPitchWorkletReady()) {
-    pitchShifter = new AudioWorkletNode(ctx, "pitch-shifter-processor");
+    pitchShifter = new AudioWorkletNode(ctx, "soundtouch-processor");
     const netShift = expanded.pitchFactor / expanded.rate;
     pitchShifter.port.postMessage({ pitchFactor: netShift });
   }
