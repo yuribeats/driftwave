@@ -24,12 +24,13 @@ app = modal.App("driftwave-downbeat")
 image = (
     modal.Image.debian_slim(python_version="3.10")
     .apt_install("ffmpeg", "libsndfile1")
-    .pip_install("allin1", "madmom==0.16.1", "requests", "numpy")
+    .pip_install("cython", "numpy")
+    .pip_install("madmom==0.16.1", "allin1", "requests", "fastapi[standard]")
 )
 
 
 @app.function(image=image, timeout=180, memory=8192, gpu="any")
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def detect_downbeat(item: dict) -> dict:
     """
     POST body:
