@@ -246,7 +246,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           onKeyDown={(e) => e.key === "Enter" && runLookup()}
           placeholder="ARTIST"
           className="flex-1 bg-transparent border border-[#333] px-2 py-1 text-[10px] tracking-[1px] outline-none focus:border-[#666]"
-          style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}
+          style={{ fontFamily: "var(--font-tech)", color: "#000" }}
         />
         <input
           type="text"
@@ -255,7 +255,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           onKeyDown={(e) => e.key === "Enter" && runLookup()}
           placeholder="TITLE"
           className="flex-1 bg-transparent border border-[#333] px-2 py-1 text-[10px] tracking-[1px] outline-none focus:border-[#666]"
-          style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}
+          style={{ fontFamily: "var(--font-tech)", color: "#000" }}
         />
         <button
           onClick={runLookup}
