@@ -468,9 +468,9 @@ function buildDeckGraph(
     }
   }
 
-  // Pitch shifter worklet (unlinked mode only)
+  // Pitch shifter worklet — always present when worklet is ready
   let pitchShifter: AudioWorkletNode | null = null;
-  if (!expanded.pitchSpeedLinked && isPitchWorkletReady()) {
+  if (isPitchWorkletReady()) {
     pitchShifter = new AudioWorkletNode(ctx, "rubberband-processor");
     const netShift = expanded.pitchFactor / expanded.rate;
     pitchShifter.port.postMessage(JSON.stringify(["pitch", netShift]));
@@ -942,10 +942,19 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
   setParam: (id, paramKey, value) => {
     const key = deckKey(id);
+
+    // In linked mode, speed and pitch always move together.
+    // Build a single atomic state update so expanded params are always consistent.
+    const currentLinked = getDeck(get(), id).params.pitchSpeedLinked ?? true;
+    const extraParams: Partial<SimpleParams> = {};
+    if (paramKey === "speed" && currentLinked) {
+      extraParams.pitch = 12 * Math.log2(1 + Number(value));
+    }
+
     set((s) => ({
       [key]: {
         ...s[key],
-        params: { ...s[key].params, [paramKey]: value },
+        params: { ...s[key].params, [paramKey]: value, ...extraParams },
       },
     }));
 
@@ -979,12 +988,6 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       deck.nodes.wetGain.gain.value = expanded.reverbWet;
       const ctx = getAudioContext();
       deck.nodes.convolver.buffer = generateIR(ctx, expanded.reverbDuration, expanded.reverbDecay);
-    }
-
-    // Toggling link requires rebuilding audio graph (adds/removes pitch worklet)
-    if (paramKey === "pitchSpeedLinked" && deck.isPlaying) {
-      get().pause(id);
-      setTimeout(() => get().play(id), 50);
     }
 
     const satKeys: (keyof SimpleParams)[] = ["saturation", "satDriveOverride", "satMixOverride", "satToneOverride"];

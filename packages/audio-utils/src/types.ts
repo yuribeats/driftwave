@@ -81,7 +81,7 @@ export function expandParams(s: SimpleParams): ProcessingParams {
 
   return {
     rate,
-    pitchFactor: linked ? 1.0 : pitchFactor,
+    pitchFactor,
     pitchSpeedLinked: linked,
     reverbWet: s.reverbWetOverride ?? reverbCurve * 0.8,
     reverbDuration: s.reverbDurationOverride ?? 2.5 + s.reverb * 3.5,
