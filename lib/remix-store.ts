@@ -11,12 +11,14 @@ import { getAudioContext, ensurePitchWorklet, isPitchWorkletReady } from "./audi
 
 /* ─── Saturation curve ─── */
 function makeSaturationCurve(drive: number): Float32Array<ArrayBuffer> {
-  const samples = 44100;
+  const samples = 512;
   const buffer = new ArrayBuffer(samples * 4);
   const curve = new Float32Array(buffer);
+  // Normalize so the output ceiling stays at 1.0 regardless of drive
+  const norm = drive > 0 ? 1 / Math.tanh(drive) : 1;
   for (let i = 0; i < samples; i++) {
     const x = (i * 2) / samples - 1;
-    curve[i] = Math.tanh(x * drive);
+    curve[i] = Math.tanh(x * drive) * norm;
   }
   return curve;
 }
@@ -33,12 +35,21 @@ function seededRandom(seed: number) {
 function generateIR(ctx: AudioContext, duration: number, decay: number): AudioBuffer {
   const length = Math.ceil(ctx.sampleRate * duration);
   const ir = ctx.createBuffer(2, length, ctx.sampleRate);
-  const seed = Math.round(duration * 1000) * 7919 + Math.round(decay * 1000) * 104729 + ctx.sampleRate;
-  const rand = seededRandom(seed);
+  const seedBase = Math.round(duration * 1000) * 7919 + Math.round(decay * 1000) * 104729 + ctx.sampleRate;
+  // Independent seeds per channel for stereo width
+  const seeds = [seedBase, seedBase ^ 0x5A3C9F1B];
   for (let c = 0; c < 2; c++) {
     const data = ir.getChannelData(c);
+    const rand = seededRandom(seeds[c]);
+    let prev = 0;
     for (let i = 0; i < length; i++) {
-      data[i] = (rand() * 2 - 1) * Math.pow(1 - i / length, decay);
+      // Exponential decay — plate-style tight tail
+      const env = Math.exp(-decay * 4 * i / length);
+      const noise = rand() * 2 - 1;
+      // First-order highpass differentiation: brightens the reverb (plate character)
+      const sample = noise - prev * 0.82;
+      prev = noise;
+      data[i] = sample * env;
     }
   }
   return ir;
@@ -81,8 +92,6 @@ interface DeckNodes {
   bump: BiquadFilterNode;
   waveshaper: WaveShaperNode;
   satFilter: BiquadFilterNode;
-  satDry: GainNode;
-  satWet: GainNode;
   convolver: ConvolverNode;
   dryGain: GainNode;
   wetGain: GainNode;
@@ -146,7 +155,7 @@ const defaultDeck = (): DeckState => ({
   nodes: null,
   startedAt: 0,
   pauseOffset: 0,
-  volume: 0.8,
+  volume: 0.6,
   stemError: null,
   calculatedBPM: null,
   regionStart: 0,
@@ -198,11 +207,11 @@ function expandCompressor(m: MasterBusParams) {
 function expandLimiter(m: MasterBusParams) {
   const amt = m.limiterAmount;
   return {
-    threshold: m.limiterThreshold ?? (-1 - amt * 12), // -1 to -13 dB
+    threshold: m.limiterThreshold ?? (-0.5 - amt * 8), // -0.5 to -8.5 dB (gentler at low settings)
     ratio: 20,       // brick wall
     attack: 0.001,   // 1ms — fast attack
-    release: m.limiterRelease ?? (0.01 + amt * 0.1),
-    knee: m.limiterKnee ?? 0,
+    release: m.limiterRelease ?? (0.08 + amt * 0.12), // slower release = more transparent, less pump
+    knee: m.limiterKnee ?? (4 - amt * 4),             // soft knee at low settings, hard at high
   };
 }
 
@@ -386,7 +395,7 @@ function buildDeckGraph(
   const peaking = ctx.createBiquadFilter();
   peaking.type = "peaking";
   peaking.frequency.value = 2500;
-  peaking.Q.value = 1.0;
+  peaking.Q.value = 0.5;
   peaking.gain.value = expanded.eqMid;
 
   const highShelf = ctx.createBiquadFilter();
@@ -397,10 +406,10 @@ function buildDeckGraph(
   const bump = ctx.createBiquadFilter();
   bump.type = "peaking";
   bump.frequency.value = expanded.eqBumpFreq;
-  bump.Q.value = 1.5;
+  bump.Q.value = 0.7;
   bump.gain.value = expanded.eqBumpGain;
 
-  // Saturation
+  // Saturation — series routing (no dry/wet split avoids phase comb filtering)
   const waveshaper = ctx.createWaveShaper();
   waveshaper.curve = makeSaturationCurve(expanded.satDrive);
   waveshaper.oversample = "4x";
@@ -409,14 +418,6 @@ function buildDeckGraph(
   satFilter.type = "lowpass";
   satFilter.frequency.value = expanded.satTone;
   satFilter.Q.value = 0.707;
-
-  const satDry = ctx.createGain();
-  satDry.gain.value = 1 - expanded.satMix;
-
-  const satWet = ctx.createGain();
-  satWet.gain.value = expanded.satMix;
-
-  const satMerger = ctx.createGain();
 
   // Reverb
   const convolver = ctx.createConvolver();
@@ -487,15 +488,11 @@ function buildDeckGraph(
   peaking.connect(highShelf);
   highShelf.connect(bump);
 
-  bump.connect(satDry);
   bump.connect(waveshaper);
   waveshaper.connect(satFilter);
-  satFilter.connect(satWet);
-  satDry.connect(satMerger);
-  satWet.connect(satMerger);
 
-  satMerger.connect(dryGain);
-  satMerger.connect(convolver);
+  satFilter.connect(dryGain);
+  satFilter.connect(convolver);
   convolver.connect(wetGain);
   dryGain.connect(reverbMerger);
   wetGain.connect(reverbMerger);
@@ -520,7 +517,7 @@ function buildDeckGraph(
 
   return {
     source, pitchShifter, lowShelf, peaking, highShelf, bump,
-    waveshaper, satFilter, satDry, satWet,
+    waveshaper, satFilter,
     convolver, dryGain, wetGain, analyser, deckGain,
   };
 }
@@ -994,8 +991,6 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     if (satKeys.includes(paramKey)) {
       deck.nodes.waveshaper.curve = makeSaturationCurve(expanded.satDrive);
       deck.nodes.satFilter.frequency.value = expanded.satTone;
-      deck.nodes.satDry.gain.value = 1 - expanded.satMix;
-      deck.nodes.satWet.gain.value = expanded.satMix;
     }
 
     // BPM lock: Deck A speed/pitch changes propagate to Deck B

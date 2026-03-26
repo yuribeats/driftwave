@@ -61,10 +61,11 @@ export function expandParams(s: SimpleParams): ProcessingParams {
   // When unlinked: rate = speedRate (speed only), pitchFactor applied separately via worklet
   const rate = linked ? speedRate : speedRate;
 
-  // Tone: ±8dB gentle shelf EQ, no resonant bump
+  // Tone: high shelf for air, gentle low shelf for bass cut/boost
+  // Max ±5dB to keep EQ musical and avoid harsh phase artifacts at extremes
   const toneMag = Math.abs(s.tone);
   const toneSign = s.tone < 0 ? -1 : 1;
-  const toneAmount = Math.pow(toneMag, 0.6) * 8 * toneSign;
+  const toneAmount = Math.pow(toneMag, 0.7) * 5 * toneSign;
 
   // Reverb: sqrt curve for audible presence at low settings
   const reverbCurve = Math.sqrt(s.reverb);
@@ -73,20 +74,21 @@ export function expandParams(s: SimpleParams): ProcessingParams {
   const bumpFreq = 1000;
   const bumpGain = 0;
 
-  // Saturation: gentle tape-style warmth
+  // Saturation: series tanh with normalized output — adds harmonic warmth and air
+  // Drive range 1–9; at drive=1 the curve is nearly linear for typical signals
   const sat = s.saturation ?? 0;
-  const satDrive = 1 + sat * 5;       // max 6x (subtle)
-  const satMix = sat * 0.5;           // max 50% wet (always blended with dry)
-  const satTone = 20000 - sat * 8000; // 20kHz → 12kHz (keeps highs)
+  const satDrive = 1 + sat * 8;        // max 9x drive
+  const satMix = 1.0;                  // always series — no dry/wet split
+  const satTone = 20000 - sat * 6000;  // 20kHz → 14kHz (preserves more air)
 
   return {
     rate,
     pitchFactor,
     pitchSpeedLinked: linked,
-    reverbWet: s.reverbWetOverride ?? reverbCurve * 0.8,
-    reverbDuration: s.reverbDurationOverride ?? 2.5 + s.reverb * 3.5,
-    reverbDecay: s.reverbDecayOverride ?? 2.0 + s.reverb * 2.0,
-    eqLow: s.eqLowOverride ?? -toneAmount * 0.3,
+    reverbWet: s.reverbWetOverride ?? reverbCurve * 0.65,
+    reverbDuration: s.reverbDurationOverride ?? 0.5 + s.reverb * 1.5,
+    reverbDecay: s.reverbDecayOverride ?? 3.0 + s.reverb * 4.0,
+    eqLow: s.eqLowOverride ?? -toneAmount * 0.4,
     eqMid: s.eqMidOverride ?? 0,
     eqHigh: s.eqHighOverride ?? toneAmount,
     eqBumpFreq: s.eqBumpFreqOverride ?? bumpFreq,
