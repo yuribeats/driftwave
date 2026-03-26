@@ -1197,7 +1197,7 @@ export default function Home() {
   const crossfader = useRemixStore((s) => s.crossfader);
   const setCrossfader = useRemixStore((s) => s.setCrossfader);
   const syncPlay = useRemixStore((s) => s.syncPlay);
-  const setRegion = useRemixStore((s) => s.setRegion);
+  const setParam = useRemixStore((s) => s.setParam);
   const deckA = useRemixStore((s) => s.deckA);
   const deckB = useRemixStore((s) => s.deckB);
   const recordArmed = useRemixStore((s) => s.recordArmed);
@@ -1357,11 +1357,17 @@ export default function Home() {
                 <span className="label" style={{ margin: 0, fontSize: "12px", marginBottom: "4px" }}>MATCH LEN</span>
                 <button
                   onClick={() => {
-                    const aLen = (deckA.regionEnd > 0 ? deckA.regionEnd : (deckA.sourceBuffer?.duration ?? 0)) - deckA.regionStart;
-                    if (aLen <= 0 || !deckB.sourceBuffer) return;
-                    const bDur = deckB.sourceBuffer.duration;
-                    const newEnd = Math.min(deckB.regionStart + aLen, bDur);
-                    setRegion("B", deckB.regionStart, newEnd);
+                    if (!deckA.sourceBuffer || !deckB.sourceBuffer) return;
+                    const aLen = (deckA.regionEnd > 0 ? deckA.regionEnd : deckA.sourceBuffer.duration) - deckA.regionStart;
+                    const bLen = (deckB.regionEnd > 0 ? deckB.regionEnd : deckB.sourceBuffer.duration) - deckB.regionStart;
+                    if (aLen <= 0 || bLen <= 0) return;
+                    const speedRatio = bLen / aLen;
+                    const newSpeed = speedRatio - 1.0;
+                    const bLinked = deckB.params.pitchSpeedLinked ?? true;
+                    setParam("B", "speed", newSpeed);
+                    if (bLinked) {
+                      setParam("B", "pitch", 12 * Math.log2(speedRatio));
+                    }
                   }}
                   disabled={!deckA.sourceBuffer || !deckB.sourceBuffer}
                   className="rocker-switch"
