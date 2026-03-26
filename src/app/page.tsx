@@ -93,6 +93,38 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const lockGridSectionDur = useRemixStore((s) => s.lockGridSectionDur);
   const recordArmed = useRemixStore((s) => s.recordArmed);
 
+  const [artist, setArtist] = useState("");
+  const [title, setTitle] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupKey, setLookupKey] = useState<string | null>(null);
+  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced everysong lookup when artist + title are both non-empty
+  useEffect(() => {
+    if (lookupTimer.current) clearTimeout(lookupTimer.current);
+    const q = [artist, title].filter(Boolean).join(" ").trim();
+    if (!q) { setLookupKey(null); return; }
+    lookupTimer.current = setTimeout(async () => {
+      setLookupLoading(true);
+      try {
+        const res = await fetch(`/api/everysong?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (data.found) {
+          if (data.bpm) {
+            setBPM(id, data.bpm);
+            setUserBPM(String(data.bpm));
+          }
+          if (data.noteIndex !== null) setBaseKey(data.noteIndex);
+          setLookupKey(data.key ?? null);
+        } else {
+          setLookupKey(null);
+        }
+      } catch { setLookupKey(null); }
+      setLookupLoading(false);
+    }, 700);
+    return () => { if (lookupTimer.current) clearTimeout(lookupTimer.current); };
+  }, [artist, title, id, setBPM]);
+
   // Clear key and BPM when source changes
   const sourceId = deck.sourceBuffer ? deck.sourceFilename : null;
   useEffect(() => {
@@ -100,6 +132,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
     setUserBPM("");
     setEditingKey(false);
     setEditingBPM(false);
+    setLookupKey(null);
   }, [sourceId]);
 
   // Lock grid section duration when BPM is set while GRIDLOCK is enabled
@@ -209,6 +242,32 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             <div className={`led-rect ${deck.isPlaying ? "led-green-on" : deck.sourceBuffer ? "led-green-on" : "led-green"}`} />
           </div>
         </div>
+      </div>
+
+      {/* Artist / Title lookup */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={artist}
+          onChange={(e) => setArtist(e.target.value)}
+          placeholder="ARTIST"
+          className="flex-1 bg-transparent border border-[#333] px-2 py-1 text-[10px] tracking-[1px] outline-none focus:border-[#666]"
+          style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}
+        />
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="TITLE"
+          className="flex-1 bg-transparent border border-[#333] px-2 py-1 text-[10px] tracking-[1px] outline-none focus:border-[#666]"
+          style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}
+        />
+        {lookupLoading && (
+          <span className="text-[9px] self-center tracking-[1px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>...</span>
+        )}
+        {!lookupLoading && lookupKey && (
+          <span className="text-[9px] self-center tracking-[1px]" style={{ color: "var(--accent-gold)", fontFamily: "var(--font-tech)" }}>✓</span>
+        )}
       </div>
 
       {/* CRT status */}
