@@ -183,7 +183,7 @@ const defaultDeck = (): DeckState => ({
   downbeatDetecting: false,
 });
 
-interface MasterBusParams {
+export interface MasterBusParams {
   eqLow: number;       // -20 to +20 dB
   eqMid: number;       // -20 to +20 dB
   eqHigh: number;      // -20 to +20 dB
@@ -263,6 +263,7 @@ interface RemixStore {
   loadFromAudioUrl: (deck: DeckId, url: string, filename: string) => Promise<void>;
   setDeckMeta: (deck: DeckId, meta: { artist?: string; title?: string; baseKey?: number | null }) => void;
   restoreSession: (sessionId: string) => Promise<void>;
+  restoreSessionFromData: (session: Record<string, unknown>) => Promise<void>;
   autoLoad: (artist: string, title: string) => Promise<void>;
   lookupEverysong: (deck: DeckId, artist: string, title: string) => Promise<void>;
   loadDeck: (deck: DeckId, artist: string, title: string) => Promise<void>;
@@ -921,6 +922,43 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       if (typeof session.crossfader === "number") get().setCrossfader(session.crossfader);
     } catch (err) {
       console.error("restoreSession error:", err);
+    }
+  },
+
+  restoreSessionFromData: async (session) => {
+    try {
+      const applyDeck = async (id: DeckId, d: Record<string, unknown> | null) => {
+        if (!d?.audioUrl) return;
+        await get().loadFromAudioUrl(id, d.audioUrl as string, (d.filename as string) || "track");
+        const params = (d.params as Record<string, unknown>) || {};
+        for (const [k, v] of Object.entries(params)) {
+          get().setParam(id, k as keyof SimpleParams, v as number | boolean);
+        }
+        get().setVolume(id, (d.volume as number) ?? 0.6);
+        get().setRegion(id, (d.regionStart as number) ?? 0, (d.regionEnd as number) ?? 0);
+        get().setDeckMeta(id, {
+          artist: (d.artist as string) || "",
+          title: (d.title as string) || "",
+          baseKey: (d.baseKey as number | null) ?? null,
+        });
+        if (d.calculatedBPM) {
+          const dk = deckKey(id);
+          set((s) => ({ [dk]: { ...s[dk], calculatedBPM: d.calculatedBPM as number } }));
+        }
+      };
+
+      await applyDeck("A", (session.deckA as Record<string, unknown>) ?? null);
+      await applyDeck("B", (session.deckB as Record<string, unknown>) ?? null);
+      if (typeof session.crossfader === "number") get().setCrossfader(session.crossfader);
+
+      if (session.masterBus && typeof session.masterBus === "object") {
+        const mb = session.masterBus as Record<string, unknown>;
+        for (const [k, v] of Object.entries(mb)) {
+          get().setMasterBus(k as keyof MasterBusParams, v as number);
+        }
+      }
+    } catch (err) {
+      console.error("restoreSessionFromData error:", err);
     }
   },
 

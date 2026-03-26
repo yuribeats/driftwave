@@ -3,6 +3,7 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import { expandParams } from "@yuribeats/audio-utils";
 import { useRemixStore, getMasterAnalyser } from "../../lib/remix-store";
+import type { MasterBusParams } from "../../lib/remix-store";
 import { getAudioContext } from "../../lib/audio-context";
 import WaveformDisplay from "../../components/WaveformDisplay";
 import PianoKeyboard from "../../components/PianoKeyboard";
@@ -1363,6 +1364,91 @@ function Manual({ onClose }: { onClose: () => void }) {
   );
 }
 
+interface LocalSession {
+  id: string;
+  name: string;
+  savedAt: string;
+  deckA: Record<string, unknown> | null;
+  deckB: Record<string, unknown> | null;
+  crossfader: number;
+  masterBus: MasterBusParams;
+}
+
+const LS_KEY = "dw_sessions";
+
+function getSavedSessions(): LocalSession[] {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function SaveLoadModal({ onClose }: { onClose: () => void }) {
+  const restoreSessionFromData = useRemixStore((s) => s.restoreSessionFromData);
+  const [sessions, setSessions] = useState<LocalSession[]>([]);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSessions(getSavedSessions());
+  }, []);
+
+  const handleLoad = async (s: LocalSession) => {
+    setLoadingId(s.id);
+    await restoreSessionFromData({ deckA: s.deckA, deckB: s.deckB, crossfader: s.crossfader, masterBus: s.masterBus });
+    setLoadingId(null);
+    onClose();
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = getSavedSessions().filter((s) => s.id !== id);
+    localStorage.setItem(LS_KEY, JSON.stringify(updated));
+    setSessions(updated);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.85)" }}>
+      <div className="console w-full max-w-[600px] max-h-[80vh] overflow-y-auto p-6 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm tracking-[2px] uppercase" style={{ color: "var(--text-dark)", fontFamily: "var(--font-display)" }}>SAVED SESSIONS</span>
+          <button onClick={onClose} className={detailBtnClass(false)} style={detailBtnStyle}>CLOSE</button>
+        </div>
+        {sessions.length === 0 ? (
+          <div className="text-[12px] opacity-50" style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}>NO SAVED SESSIONS</div>
+        ) : (
+          <div className="flex flex-col gap-0">
+            {sessions.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-3 py-2 border-b border-[#444]">
+                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                  <span className="text-[12px] uppercase tracking-[0.1em] truncate" style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}>{s.name}</span>
+                  <span className="text-[10px] opacity-50" style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)" }}>{s.savedAt}</span>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => handleLoad(s)}
+                    disabled={loadingId === s.id}
+                    className={detailBtnClass(false)}
+                    style={{ ...detailBtnStyle, opacity: loadingId === s.id ? 0.5 : 1 }}
+                  >
+                    {loadingId === s.id ? "LOADING..." : "LOAD"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(s.id)}
+                    className={detailBtnClass(false)}
+                    style={{ ...detailBtnStyle, color: "#c82828", borderColor: "#c82828" }}
+                  >
+                    DELETE
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const crossfader = useRemixStore((s) => s.crossfader);
   const setCrossfader = useRemixStore((s) => s.setCrossfader);
@@ -1380,7 +1466,10 @@ export default function Home() {
   const exportRecordingMP4 = useRemixStore((s) => s.exportRecordingMP4);
   const pendingVideoExport = useRemixStore((s) => s.pendingVideoExport);
   const clearPendingExport = useRemixStore((s) => s.clearPendingExport);
+  const masterBus = useRemixStore((s) => s.masterBus);
   const [manualOpen, setManualOpen] = useState(false);
+  const [loadModalOpen, setLoadModalOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [showDeckB, setShowDeckB] = useState(true);
   const exportMP4 = useRemixStore((s) => s.exportMP4);
@@ -1440,6 +1529,46 @@ export default function Home() {
     setTimeout(() => setShareStatus(""), 3000);
   };
 
+  const saveSession = () => {
+    const buildDeckData = (deck: typeof deckA) => deck.sourceBuffer ? {
+      audioUrl: deck.sourceUrl || null,
+      filename: deck.sourceFilename || "track",
+      params: deck.params,
+      regionStart: deck.regionStart,
+      regionEnd: deck.regionEnd,
+      volume: deck.volume,
+      calculatedBPM: deck.calculatedBPM,
+      artist: deck.artist,
+      title: deck.title,
+      baseKey: deck.baseKey,
+    } : null;
+
+    const parts: string[] = [];
+    if (deckA.sourceBuffer && deckA.title) parts.push(deckA.title.toUpperCase());
+    if (deckB.sourceBuffer && deckB.title) parts.push(deckB.title.toUpperCase());
+    const name = parts.length > 0 ? parts.join(" + ") : "SESSION";
+
+    const id = Math.random().toString(36).slice(2, 12);
+    const savedAt = new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).toUpperCase();
+
+    const session: LocalSession = {
+      id,
+      name,
+      savedAt,
+      deckA: buildDeckData(deckA) as Record<string, unknown> | null,
+      deckB: buildDeckData(deckB) as Record<string, unknown> | null,
+      crossfader,
+      masterBus,
+    };
+
+    const existing = getSavedSessions();
+    existing.unshift(session);
+    if (existing.length > 30) existing.splice(30);
+    localStorage.setItem(LS_KEY, JSON.stringify(existing));
+    setSaveStatus("SAVED");
+    setTimeout(() => setSaveStatus(""), 2500);
+  };
+
   return (
     <main className="min-h-screen flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-[1100px] flex flex-col gap-5">
@@ -1465,6 +1594,22 @@ export default function Home() {
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-full mt-1 border-2 border-[#555] flex flex-col" style={{ minWidth: "200px", zIndex: 100, backgroundColor: "var(--bg-base, #c4b89a)" }}>
+                  <button
+                    onClick={() => { saveSession(); setMenuOpen(false); }}
+                    className="text-[12px] uppercase tracking-[0.15em] px-4 py-2 text-left border-b border-[#333] flex items-center justify-between"
+                    style={{ fontFamily: "var(--font-tech)", color: saveStatus ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent" }}
+                  >
+                    {saveStatus || "SAVE SESSION"}
+                    <span data-tooltip-right="SAVE CURRENT SESSION TO THIS BROWSER" className="ml-3 opacity-40 text-[10px]">?</span>
+                  </button>
+                  <button
+                    onClick={() => { setLoadModalOpen(true); setMenuOpen(false); }}
+                    className="text-[12px] uppercase tracking-[0.15em] px-4 py-2 text-left border-b border-[#333] flex items-center justify-between"
+                    style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent" }}
+                  >
+                    LOAD SESSION
+                    <span data-tooltip-right="RESTORE A PREVIOUSLY SAVED SESSION" className="ml-3 opacity-40 text-[10px]">?</span>
+                  </button>
                   <button
                     onClick={() => { setManualOpen(true); setMenuOpen(false); }}
                     className="text-[12px] uppercase tracking-[0.15em] px-4 py-2 text-left border-b border-[#333] flex items-center justify-between"
@@ -1685,6 +1830,7 @@ export default function Home() {
         </div>
       </div>
       {manualOpen && <Manual onClose={() => setManualOpen(false)} />}
+      {loadModalOpen && <SaveLoadModal onClose={() => setLoadModalOpen(false)} />}
       {pendingVideoExport && (
         <ExportVideoModalRemix
           audioBlob={pendingVideoExport}
