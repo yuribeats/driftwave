@@ -1474,60 +1474,6 @@ export default function Home() {
   const [showDeckB, setShowDeckB] = useState(true);
   const exportMP4 = useRemixStore((s) => s.exportMP4);
   const isExporting = useRemixStore((s) => s.isExporting);
-  const restoreSession = useRemixStore((s) => s.restoreSession);
-  const [shareLoading, setShareLoading] = useState(false);
-  const [shareStatus, setShareStatus] = useState("");
-
-  // Restore shared session on load
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get("s");
-    if (sessionId) {
-      setShowDeckB(true);
-      restoreSession(sessionId);
-    }
-  }, [restoreSession]);
-
-  const handleShare = async () => {
-    if (!deckA.sourceBuffer && !deckB.sourceBuffer) return;
-    setShareLoading(true);
-    setMenuOpen(false);
-    try {
-      const buildDeckData = (deck: typeof deckA) => deck.sourceBuffer ? {
-        audioUrl: deck.sourceUrl || null,
-        filename: deck.sourceFilename || "track",
-        params: deck.params,
-        regionStart: deck.regionStart,
-        regionEnd: deck.regionEnd,
-        volume: deck.volume,
-        calculatedBPM: deck.calculatedBPM,
-        artist: deck.artist,
-        title: deck.title,
-        baseKey: deck.baseKey,
-      } : null;
-
-      const form = new FormData();
-      form.append("session", JSON.stringify({
-        deckA: buildDeckData(deckA),
-        deckB: buildDeckData(deckB),
-        crossfader,
-      }));
-      if (deckA.sourceFile) form.append("audioA", deckA.sourceFile);
-      if (deckB.sourceFile) form.append("audioB", deckB.sourceFile);
-
-      const res = await fetch("/api/session", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
-      const url = `${window.location.origin}/?s=${data.id}`;
-      await navigator.clipboard.writeText(url);
-      setShareStatus("LINK COPIED");
-    } catch {
-      setShareStatus("SHARE FAILED");
-    }
-    setShareLoading(false);
-    setTimeout(() => setShareStatus(""), 3000);
-  };
 
   const saveSession = () => {
     const buildDeckData = (deck: typeof deckA) => deck.sourceBuffer ? {
@@ -1626,15 +1572,6 @@ export default function Home() {
                   >
                     {isExporting ? "RENDERING..." : "EXPORT MP4"}
                     <span data-tooltip-right="RENDER YOUR MIX AS A VIDEO FILE" className="ml-3 opacity-40 text-[10px]">?</span>
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    disabled={(!deckA.sourceBuffer && !deckB.sourceBuffer) || shareLoading}
-                    className="text-[12px] uppercase tracking-[0.15em] px-4 py-2 text-left border-b border-[#333] flex items-center justify-between"
-                    style={{ fontFamily: "var(--font-tech)", color: shareStatus ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent", opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.3 : 1 }}
-                  >
-                    {shareLoading ? "UPLOADING..." : shareStatus || "SHARE SESSION"}
-                    <span data-tooltip-right="UPLOAD AND SHARE A LINK TO THIS SESSION" className="ml-3 opacity-40 text-[10px]">?</span>
                   </button>
                   <a
                     href="https://www.youtube.com/@SLOWANDREVERBEDMACHINE"
