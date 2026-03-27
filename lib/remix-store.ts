@@ -142,6 +142,7 @@ interface DeckState {
   automationEnabled: boolean;
   automationPoints: AutomationPoint[];
   gridlockEnabled: boolean;
+  gridSubdivide: boolean;       // when true, sectionDur = gridLockedSectionDur / 4 (beat-level)
   gridOffsetMs: number;
   gridFirstTransient: number;
   gridLockedSectionDur: number; // seconds — frozen at toggle-on
@@ -180,6 +181,7 @@ const defaultDeck = (): DeckState => ({
   automationEnabled: false,
   automationPoints: [],
   gridlockEnabled: false,
+  gridSubdivide: false,
   gridOffsetMs: 0,
   gridFirstTransient: 0,
   gridLockedSectionDur: 0,
@@ -310,6 +312,7 @@ interface RemixStore {
   removeAutomationPoint: (deck: DeckId, index: number) => void;
   moveAutomationPoint: (deck: DeckId, index: number, time: number, value: number) => void;
   toggleGridlock: (deck: DeckId) => void;
+  toggleGridSubdivide: (deck: DeckId) => void;
   setGridOffset: (deck: DeckId, ms: number) => void;
   lockGridSectionDur: (deck: DeckId) => void;
 }
@@ -1970,6 +1973,11 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       const lockedDur = deck.calculatedBPM ? 960 / (deck.calculatedBPM * currentRate) : 0;
       set((s) => ({ [dk]: { ...s[dk], gridlockEnabled: true, gridOffsetMs: 0, gridFirstTransient: firstTransient, gridLockedSectionDur: lockedDur } }));
     }
+  },
+
+  toggleGridSubdivide: (id) => {
+    const dk = deckKey(id);
+    set((s) => ({ [dk]: { ...s[dk], gridSubdivide: !s[dk].gridSubdivide } }));
   },
 
   setGridOffset: (id, ms) => {

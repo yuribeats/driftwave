@@ -91,6 +91,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const setBPM = useRemixStore((s) => s.setBPM);
   const setDeckMeta = useRemixStore((s) => s.setDeckMeta);
   const toggleGridlock = useRemixStore((s) => s.toggleGridlock);
+  const toggleGridSubdivide = useRemixStore((s) => s.toggleGridSubdivide);
   const setGridOffset = useRemixStore((s) => s.setGridOffset);
   const lockGridSectionDur = useRemixStore((s) => s.lockGridSectionDur);
   const detectDownbeat = useRemixStore((s) => s.detectDownbeat);
@@ -406,7 +407,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             onSeek={(pos) => seek(id, pos)}
             onScrub={(pos) => scrub(id, pos)}
             gridEnabled={deck.gridlockEnabled && deck.gridLockedSectionDur > 0}
-            gridSectionDur={deck.gridLockedSectionDur > 0 ? deck.gridLockedSectionDur : undefined}
+            gridSectionDur={deck.gridLockedSectionDur > 0 ? deck.gridLockedSectionDur / (deck.gridSubdivide ? 4 : 1) : undefined}
             gridAnchor={deck.gridlockEnabled ? deck.gridFirstTransient + deck.gridOffsetMs / 1000 : undefined}
             leftControls={
               <div className="relative shrink-0">
@@ -485,7 +486,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             </div>
           );
         }
-        const sectionDur = deck.gridLockedSectionDur;
+        const sectionDur = deck.gridLockedSectionDur / (deck.gridSubdivide ? 4 : 1);
         const sectionDurWallClock = sectionDur / rate; // actual playback time between lines
         const gridAnchor = deck.gridFirstTransient + deck.gridOffsetMs / 1000;
         const dur = deck.sourceBuffer!.duration;
@@ -615,7 +616,19 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                 </div>
               </div>
             </div>
-            <div className="flex justify-center mt-2">
+            <div className="flex justify-center gap-2 mt-2">
+              <button
+                onClick={() => toggleGridSubdivide(id)}
+                className="text-[12px] uppercase tracking-[0.15em] px-4 py-1 border"
+                style={{
+                  fontFamily: "var(--font-tech)",
+                  color: deck.gridSubdivide ? "#000" : "#c82828",
+                  background: deck.gridSubdivide ? "#c82828" : "transparent",
+                  borderColor: "#c82828",
+                }}
+              >
+                ÷4 BEAT
+              </button>
               <button
                 onClick={exportToMPC}
                 className="text-[12px] uppercase tracking-[0.15em] px-4 py-1 border"
