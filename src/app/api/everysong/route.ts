@@ -49,16 +49,8 @@ export async function GET(request: NextRequest) {
   }
 
   const params = new URLSearchParams({ limit: "20", sort: "popularity", dir: "desc" });
-  if (artist && title) {
-    params.set("artist", artist);
-    params.set("title", title);
-  } else if (artist) {
-    params.set("q", artist);
-  } else if (title) {
-    params.set("q", title);
-  } else {
-    params.set("q", q);
-  }
+  const combined = [artist, title, q].filter(Boolean).join(" ");
+  params.set("q", combined);
 
   const apiKey = process.env.EVERYSONG_API_KEY;
   if (apiKey) params.set("api_key", apiKey);
