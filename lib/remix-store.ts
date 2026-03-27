@@ -101,7 +101,7 @@ interface DeckNodes {
   deckGain: GainNode;
 }
 
-type StemType = "vocals" | "drums" | "bass" | "other";
+type StemType = "vocals" | "drums" | "bass" | "other" | "instrumental";
 
 interface BankedLoop {
   name: string;
@@ -1052,7 +1052,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   },
 
   loadDeck: async (id, artist, title) => {
-    const searchQuery = id === "A" ? `${artist} ${title} instrumental` : `${artist} ${title}`;
+    const searchQuery = `${artist} ${title}`;
     console.log(`[loadDeck:${id}] starting — searching YouTube for "${searchQuery}"`);
 
     const searchQ = encodeURIComponent(searchQuery);
@@ -1081,16 +1081,15 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     console.log(`[loadDeck:${id}] running Everysong lookup`);
     await get().lookupEverysong(id, artist, title);
 
-    if (id === "B") {
-      console.log(`[loadDeck:B] starting stem isolation`);
-      try {
-        await get().separateStems(id);
-        get().setStem(id, "vocals");
-        console.log(`[loadDeck:B] vocals stem active`);
-      } catch (e) {
-        console.error(`[loadDeck:B] stem separation failed:`, e);
-        throw e;
-      }
+    const stemTarget: StemType = id === "A" ? "instrumental" : "vocals";
+    console.log(`[loadDeck:${id}] starting stem isolation → ${stemTarget}`);
+    try {
+      await get().separateStems(id);
+      get().setStem(id, stemTarget);
+      console.log(`[loadDeck:${id}] ${stemTarget} stem active`);
+    } catch (e) {
+      console.error(`[loadDeck:${id}] stem separation failed:`, e);
+      throw e;
     }
 
     console.log(`[loadDeck:${id}] complete`);
@@ -1584,6 +1583,29 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           stems[name] = audioBuf;
         })
       );
+
+      // Build instrumental = drums + bass + other (no vocals)
+      const instSources = (["drums", "bass", "other"] as const)
+        .map((n) => stems[n])
+        .filter((b): b is AudioBuffer => !!b);
+      if (instSources.length > 0) {
+        const maxLen = Math.max(...instSources.map((b) => b.length));
+        const nCh = Math.max(...instSources.map((b) => b.numberOfChannels));
+        const instBuf = ctx.createBuffer(nCh, maxLen, instSources[0].sampleRate);
+        for (let c = 0; c < nCh; c++) {
+          const out = instBuf.getChannelData(c);
+          for (const src of instSources) {
+            if (c >= src.numberOfChannels) continue;
+            const inp = src.getChannelData(c);
+            for (let i = 0; i < inp.length; i++) out[i] += inp[i];
+          }
+          for (let i = 0; i < out.length; i++) {
+            if (out[i] > 1) out[i] = 1;
+            else if (out[i] < -1) out[i] = -1;
+          }
+        }
+        stems.instrumental = instBuf;
+      }
 
       set((s) => ({
         [dk]: { ...s[dk], stemBuffers: stems, isStemLoading: false },
