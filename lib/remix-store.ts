@@ -1154,14 +1154,32 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         const detectedBpm = (data.bpm as number) || 0;
         console.log(`[detectDownbeat:${id}] first downbeat = ${firstDownbeatMs}ms, BPM=${detectedBpm}, beats=${data.beats_ms?.length}`);
 
-        // Snap to the nearest downbeat to the current cursor position.
-        // first_downbeat_ms is an anchor; extrapolate using BPM to handle any position.
+        // Snap to nearest actual detected downbeat. Fall back to bar extrapolation
+        // only if cursor is past the end of the detected list.
         const currentPosMs = deck.pauseOffset * 1000;
+        const downbeatList: number[] = (data.downbeats_ms as number[]) ?? [firstDownbeatMs];
         let targetDownbeatMs = firstDownbeatMs;
-        if (detectedBpm > 0) {
-          const barDurationMs = (4 * 60 / detectedBpm) * 1000;
-          const barsFromFirst = Math.round((currentPosMs - firstDownbeatMs) / barDurationMs);
-          targetDownbeatMs = Math.max(0, firstDownbeatMs + barsFromFirst * barDurationMs);
+        if (downbeatList.length > 0) {
+          // Find closest downbeat in the detected list
+          const closest = downbeatList.reduce((best, t) =>
+            Math.abs(t - currentPosMs) < Math.abs(best - currentPosMs) ? t : best
+          , downbeatList[0]);
+
+          // If cursor is within the detected range, use the closest detected downbeat
+          const lastKnown = downbeatList[downbeatList.length - 1];
+          if (currentPosMs <= lastKnown + (downbeatList.length > 1 ? (lastKnown - downbeatList[downbeatList.length - 2]) : 2000)) {
+            targetDownbeatMs = closest;
+          } else {
+            // Cursor past detected range — extrapolate from last known downbeat
+            const bpmForCalc = deck.calculatedBPM || detectedBpm;
+            const barDurationMs = bpmForCalc > 0 ? (4 * 60 / bpmForCalc) * 1000 : 0;
+            if (barDurationMs > 0) {
+              const barsFromLast = Math.round((currentPosMs - lastKnown) / barDurationMs);
+              targetDownbeatMs = Math.max(0, lastKnown + barsFromLast * barDurationMs);
+            } else {
+              targetDownbeatMs = closest;
+            }
+          }
         }
         console.log(`[detectDownbeat:${id}] cursor=${currentPosMs.toFixed(0)}ms → snapped to ${targetDownbeatMs.toFixed(0)}ms`);
         const inPoint = targetDownbeatMs / 1000;
