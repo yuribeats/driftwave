@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@libsql/client";
 
 const KEY_MAP: Record<string, number> = {
   "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
@@ -24,8 +25,6 @@ function normalize(s: string): string {
 function wordOverlap(a: string, b: string): number {
   const wordsA = new Set(normalize(a).split(" ").filter(Boolean));
   const wordsB = normalize(b).split(" ").filter(Boolean);
-  // Normalize by query size: if all query words appear in the track, score = 1.0
-  // This ensures "Bebe Rexha" matches "Bebe Rexha, Florida Georgia Line" fully
   return wordsB.filter((w) => wordsA.has(w)).length / Math.max(wordsA.size, 1);
 }
 
@@ -48,27 +47,53 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing artist, title, or q" }, { status: 400 });
   }
 
-  const params = new URLSearchParams({ limit: "20", sort: "popularity", dir: "desc" });
-  if (artist) params.set("artist", artist);
-  if (title) params.set("title", title);
-  if (!artist && !title && q) params.set("q", q);
-
-  const apiKey = process.env.EVERYSONG_API_KEY;
-  if (apiKey) params.set("api_key", apiKey);
-
-  const url = `https://everysong.site/api/search?${params.toString()}`;
+  const db = createClient({
+    url: process.env.TURSO_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
 
   try {
-    const res = await fetch(url, { next: { revalidate: 0 } });
-    if (!res.ok) throw new Error(`Everysong error: ${res.status}`);
-    const data = await res.json();
+    let sql: string;
+    const args: (string | number)[] = [];
 
-    const tracks = (data.tracks ?? []) as Array<{ artist: string; title: string; bpm: number | null; key: string | null }>;
-    if (tracks.length === 0) {
+    if (q && !artist && !title) {
+      // Free-form search via FTS5
+      const safe = q.replace(/['"*]/g, " ").trim();
+      sql = `
+        SELECT t.artist, t.title, t.bpm, t.key_name, COALESCE(t.popularity, t.hq) AS pop
+        FROM tracks_fts f
+        JOIN tracks t ON t.id = f.rowid
+        WHERE tracks_fts MATCH ?
+        ORDER BY pop DESC
+        LIMIT 20
+      `;
+      args.push(safe);
+    } else {
+      const conditions: string[] = [];
+      if (artist) { conditions.push("LOWER(artist) LIKE LOWER(?)"); args.push(`%${artist}%`); }
+      if (title) { conditions.push("LOWER(title) LIKE LOWER(?)"); args.push(`%${title}%`); }
+      sql = `
+        SELECT artist, title, bpm, key_name, COALESCE(popularity, hq) AS pop
+        FROM tracks
+        WHERE ${conditions.join(" AND ")}
+        ORDER BY pop DESC
+        LIMIT 20
+      `;
+    }
+
+    const result = await db.execute({ sql, args });
+
+    if (result.rows.length === 0) {
       return NextResponse.json({ found: false });
     }
 
-    // Pick best match by artist+title word overlap; fall back to first (most popular)
+    const tracks = result.rows.map((r) => ({
+      artist: r.artist as string,
+      title: r.title as string,
+      bpm: r.bpm as number | null,
+      key: r.key_name as string | null,
+    }));
+
     const best = tracks.reduce((best, t) => {
       const score = matchScore(t, artist, title);
       const bestScore = matchScore(best, artist, title);
