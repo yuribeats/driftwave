@@ -82,6 +82,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const toneLabel = deck.params.tone === 0 ? "FLAT" : deck.params.tone < 0 ? "DARK" : "BRIGHT";
   const expanded = expandParams(deck.params);
   const [ytUrl, setYtUrl] = useState("");
+  const [loopEnabled, setLoopEnabled] = useState(false);
   const baseKey = deck.baseKey;
   const baseMode = deck.baseMode;
   const [editingKey, setEditingKey] = useState(false);
@@ -195,8 +196,8 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const handleStart = useCallback(async () => {
     const ctx = getAudioContext();
     await ctx.resume();
-    play(id);
-  }, [play, id]);
+    play(id, loopEnabled || undefined);
+  }, [play, id, loopEnabled]);
 
   const handleSkip = useCallback(async (delta: number) => {
     if (!deck.sourceBuffer) return;
@@ -704,6 +705,20 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                 <span className="text-[12px]" style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}>
                   {(nudgeStep * 1000).toFixed(0)}MS
                 </span>
+              </div>
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                <div className="label" style={{ fontSize: "12px", margin: 0 }}>LOOP</div>
+                <button
+                  onClick={() => setLoopEnabled((v) => !v)}
+                  style={{
+                    ...btnStyle,
+                    width: 40, height: 24,
+                    color: loopEnabled ? "var(--accent-gold)" : "var(--text-dark)",
+                    borderColor: loopEnabled ? "var(--accent-gold)" : "#444",
+                  }}
+                >
+                  {loopEnabled ? "ON" : "OFF"}
+                </button>
               </div>
               <div className="flex flex-col items-center gap-1 shrink-0">
                 <div className="label" style={{ fontSize: "12px", margin: 0 }}>OUT</div>
