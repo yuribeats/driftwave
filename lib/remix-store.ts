@@ -1117,53 +1117,26 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
       console.log(`[detectDownbeat:${id}] priors:`, { confirmedBpm, note_index: deck.baseKey });
 
-      // ── Resolve audio bytes ──────────────────────────────────────────────
-      let audioBytes: ArrayBuffer | null = null;
-      let directUrl: string | null = null;
+      // ── Build request to /api/downbeat ──────────────────────────────────
+      let requestBody: Record<string, unknown>;
 
-      if (deck.sourceAudioBytes) {
-        audioBytes = deck.sourceAudioBytes;
-        console.log(`[detectDownbeat:${id}] using cached audio bytes (${audioBytes.byteLength} bytes)`);
-      } else if (deck.sourceFile) {
-        audioBytes = await deck.sourceFile.arrayBuffer();
-        console.log(`[detectDownbeat:${id}] read local file (${audioBytes.byteLength} bytes)`);
-      } else if (deck.sourceUrl && !deck.sourceUrl.includes("youtube")) {
-        directUrl = deck.sourceUrl;
-        console.log(`[detectDownbeat:${id}] using direct audio URL`);
+      if (deck.sourceUrl?.includes("youtube")) {
+        // YouTube track — server fetches fresh CDN URL + auth header, passes to Modal
+        console.log(`[detectDownbeat:${id}] YouTube track, passing URL to server`);
+        requestBody = { youtubeUrl: deck.sourceUrl, ...priors };
+      } else if (deck.sourceUrl) {
+        // Direct audio URL (non-YouTube)
+        console.log(`[detectDownbeat:${id}] direct URL: ${deck.sourceUrl}`);
+        requestBody = { audioUrl: deck.sourceUrl, ...priors };
       } else {
-        return fail("No audio available — reload the track and try again");
+        return fail("No audio source — reload the track and try again");
       }
 
-      // ── Upload to Pinata (client-side, no Vercel body limit) ─────────────
-      let audioUrl: string;
-      if (audioBytes) {
-        console.log(`[detectDownbeat:${id}] getting Pinata signed URL...`);
-        const signedRes = await fetch("/api/pinata-upload-url", { method: "POST" });
-        if (!signedRes.ok) return fail(`Pinata signed URL failed (${signedRes.status})`);
-        const { url: signedUrl, gateway, error: signedErr } = await signedRes.json();
-        if (signedErr || !signedUrl) return fail(`Pinata signed URL error: ${signedErr}`);
-
-        console.log(`[detectDownbeat:${id}] uploading to Pinata...`);
-        const fd = new FormData();
-        fd.append("file", new Blob([audioBytes], { type: "audio/mpeg" }), "audio.mp3");
-        const uploadRes = await fetch(signedUrl, { method: "POST", body: fd });
-        if (!uploadRes.ok) return fail(`Pinata upload failed (${uploadRes.status})`);
-        const uploadData = await uploadRes.json();
-        const cid = uploadData?.data?.cid;
-        if (!cid) return fail(`Pinata upload returned no CID: ${JSON.stringify(uploadData)}`);
-
-        audioUrl = `https://${gateway}/files/${cid}`;
-        console.log(`[detectDownbeat:${id}] audio at Pinata: ${audioUrl}`);
-      } else {
-        audioUrl = directUrl!;
-      }
-
-      // ── Call Modal via serverless /api/downbeat ──────────────────────────
       console.log(`[detectDownbeat:${id}] calling /api/downbeat...`);
       const res = await fetch("/api/downbeat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioUrl, ...priors }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!res.ok) {

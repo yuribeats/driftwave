@@ -62,8 +62,10 @@ def detect_downbeat(item: dict) -> dict:
     confirmed_mode  = item.get("mode")
 
     # ── Download ────────────────────────────────────────────────────────────
+    x_run = item.get("x_run")
+    download_headers = {"X-RUN": x_run} if x_run else {}
     try:
-        r = req_lib.get(audio_url, timeout=60)
+        r = req_lib.get(audio_url, headers=download_headers, timeout=60)
         r.raise_for_status()
     except Exception as e:
         return {"error": f"Download failed: {e}"}
