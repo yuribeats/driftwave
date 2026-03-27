@@ -22,7 +22,7 @@ image = (
 )
 
 
-@app.function(image=image, timeout=180, memory=4096, keep_warm=1)
+@app.function(image=image, timeout=180, memory=4096, min_containers=1)
 @modal.fastapi_endpoint(method="POST")
 def detect_downbeat(item: dict) -> dict:
     """
