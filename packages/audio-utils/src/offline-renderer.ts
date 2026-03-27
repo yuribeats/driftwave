@@ -193,14 +193,13 @@ export async function renderOffline(input: RenderInput): Promise<{
     outputChannels.push(new Float32Array(rendered.getChannelData(c)));
   }
 
-  // Apply pitch shift post-processing when unlinked
-  // playbackRate changes both tempo AND pitch. When unlinked, we need to compensate
-  // so only tempo changes. Net shift = pitchFactor / rate.
-  if (!params.pitchSpeedLinked) {
-    const netShift = params.pitchFactor / params.rate;
-    if (Math.abs(netShift - 1.0) > 0.0005) {
-      outputChannels = pitchShiftBuffer(outputChannels, netShift);
-    }
+  // Apply pitch shift to match live playback.
+  // Live always runs: netShift = pitchFactor / rate.
+  // This compensates the pitch change introduced by playbackRate so that
+  // only the desired pitchFactor offset is heard (identical in linked and unlinked).
+  const netShift = params.pitchFactor / params.rate;
+  if (Math.abs(netShift - 1.0) > 0.0005) {
+    outputChannels = pitchShiftBuffer(outputChannels, netShift);
   }
 
   return {
