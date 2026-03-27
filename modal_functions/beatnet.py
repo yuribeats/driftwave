@@ -81,6 +81,11 @@ def detect_downbeat(item: dict) -> dict:
         # ── Load audio (mono, native SR) ────────────────────────────────────
         y, sr = librosa.load(tmp, sr=None, mono=True)
 
+        # Detect where audio content actually starts (skip leading silence).
+        # top_db=30: a frame must be within 30dB of peak to count as "active".
+        _, (trim_start_sample, _) = librosa.effects.trim(y, top_db=30)
+        audio_start_time = float(trim_start_sample) / sr
+
         # ── Beat tracking ───────────────────────────────────────────────────
         if confirmed_bpm and confirmed_bpm > 0:
             # Constrain tempo to confirmed BPM ±4% to eliminate octave errors
@@ -94,6 +99,8 @@ def detect_downbeat(item: dict) -> dict:
             y=y, sr=sr, bpm=detected_bpm, tightness=100, trim=False
         )
         beat_times = librosa.frames_to_time(beat_frames, sr=sr).tolist()
+        # Drop beats that fall in leading silence
+        beat_times = [t for t in beat_times if t >= audio_start_time]
 
         if len(beat_times) == 0:
             return {"error": "No beats detected"}
@@ -116,7 +123,8 @@ def detect_downbeat(item: dict) -> dict:
             )
             result = dbn(rnn)
             # result: [[time, beat_number], ...]  beat_number==1 → downbeat
-            downbeat_times = [float(b[0]) for b in result if int(b[1]) == 1]
+            # Filter out downbeats in leading silence
+            downbeat_times = [float(b[0]) for b in result if int(b[1]) == 1 and float(b[0]) >= audio_start_time]
         except Exception:
             # Fallback: assume 4/4, first beat is downbeat, every 4th beat after
             downbeat_times = [beat_times[i] for i in range(0, len(beat_times), 4)]

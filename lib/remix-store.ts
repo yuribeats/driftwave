@@ -1151,8 +1151,20 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
       if (data.first_downbeat_ms !== null && data.first_downbeat_ms !== undefined) {
         const firstDownbeatMs = data.first_downbeat_ms as number;
-        console.log(`[detectDownbeat:${id}] first downbeat = ${firstDownbeatMs}ms, BPM=${data.bpm}, beats=${data.beats_ms?.length}`);
-        const inPoint = firstDownbeatMs / 1000;
+        const detectedBpm = (data.bpm as number) || 0;
+        console.log(`[detectDownbeat:${id}] first downbeat = ${firstDownbeatMs}ms, BPM=${detectedBpm}, beats=${data.beats_ms?.length}`);
+
+        // Snap to the nearest downbeat to the current cursor position.
+        // first_downbeat_ms is an anchor; extrapolate using BPM to handle any position.
+        const currentPosMs = deck.pauseOffset * 1000;
+        let targetDownbeatMs = firstDownbeatMs;
+        if (detectedBpm > 0) {
+          const barDurationMs = (4 * 60 / detectedBpm) * 1000;
+          const barsFromFirst = Math.round((currentPosMs - firstDownbeatMs) / barDurationMs);
+          targetDownbeatMs = Math.max(0, firstDownbeatMs + barsFromFirst * barDurationMs);
+        }
+        console.log(`[detectDownbeat:${id}] cursor=${currentPosMs.toFixed(0)}ms → snapped to ${targetDownbeatMs.toFixed(0)}ms`);
+        const inPoint = targetDownbeatMs / 1000;
         const currentRate = 1.0 + deck.params.speed;
         const updatedDeck = getDeck(get(), id);
         const lockedDur = updatedDeck.calculatedBPM ? 960 / (updatedDeck.calculatedBPM * currentRate) : 0;
