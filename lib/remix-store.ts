@@ -123,6 +123,7 @@ interface DeckState {
   artist: string;
   title: string;
   baseKey: number | null;
+  baseMode: "major" | "minor" | null;
   params: SimpleParams;
   isLoading: boolean;
   isPlaying: boolean;
@@ -162,6 +163,7 @@ const defaultDeck = (): DeckState => ({
   artist: "",
   title: "",
   baseKey: null,
+  baseMode: null,
   params: { ...SIMPLE_DEFAULTS, speed: 0, reverb: 0, tone: 0, saturation: 0, pitch: 0, pitchSpeedLinked: true },
   isLoading: false,
   isPlaying: false,
@@ -268,7 +270,7 @@ interface RemixStore {
   loadFile: (deck: DeckId, file: File) => Promise<void>;
   loadFromYouTube: (deck: DeckId, url: string) => Promise<void>;
   loadFromAudioUrl: (deck: DeckId, url: string, filename: string) => Promise<void>;
-  setDeckMeta: (deck: DeckId, meta: { artist?: string; title?: string; baseKey?: number | null }) => void;
+  setDeckMeta: (deck: DeckId, meta: { artist?: string; title?: string; baseKey?: number | null; baseMode?: "major" | "minor" | null }) => void;
   restoreSession: (sessionId: string) => Promise<void>;
   restoreSessionFromData: (session: Record<string, unknown>) => Promise<void>;
   autoLoad: (artist: string, title: string) => Promise<void>;
@@ -993,7 +995,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       const esData = await esRes.json();
       if (esData.found) {
         if (esData.bpm) get().setBPM(id, esData.bpm);
-        if (esData.noteIndex !== null) get().setDeckMeta(id, { baseKey: esData.noteIndex });
+        if (esData.noteIndex !== null) get().setDeckMeta(id, { baseKey: esData.noteIndex, baseMode: esData.mode ?? null });
       }
       get().setDeckMeta(id, { artist, title });
     };
@@ -1039,8 +1041,8 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           get().setBPM(id, data.bpm);
         }
         if (data.noteIndex !== null && data.noteIndex !== undefined) {
-          console.log(`[lookupEverysong:${id}] setting key = noteIndex ${data.noteIndex} (${data.key})`);
-          get().setDeckMeta(id, { baseKey: data.noteIndex });
+          console.log(`[lookupEverysong:${id}] setting key = noteIndex ${data.noteIndex} (${data.key}) mode=${data.mode}`);
+          get().setDeckMeta(id, { baseKey: data.noteIndex, baseMode: data.mode ?? null });
         }
       } else {
         console.warn(`[lookupEverysong:${id}] no match found for "${artist} ${title}"`);

@@ -15,9 +15,9 @@ type DeckId = "A" | "B";
 
 const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"] as const;
 
-function semitoneToKey(baseKeyIndex: number, semitones: number): string {
+function semitoneToKey(baseKeyIndex: number, semitones: number, mode?: "major" | "minor" | null): string {
   const idx = ((baseKeyIndex + Math.round(semitones)) % 12 + 12) % 12;
-  return NOTE_NAMES[idx];
+  return NOTE_NAMES[idx] + (mode === "minor" ? "m" : "");
 }
 
 function snapToSemitone(speed: number): number {
@@ -83,6 +83,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const expanded = expandParams(deck.params);
   const [ytUrl, setYtUrl] = useState("");
   const baseKey = deck.baseKey;
+  const baseMode = deck.baseMode;
   const [editingKey, setEditingKey] = useState(false);
   const [userBPM, setUserBPM] = useState<string>("");
   const [editingBPM, setEditingBPM] = useState(false);
@@ -336,7 +337,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                 onClick={() => setEditingKey(true)}
               >
                 {baseKey !== null
-                  ? `KEY: ${semitoneToKey(baseKey, displaySemitones)}`
+                  ? `KEY: ${semitoneToKey(baseKey, displaySemitones, baseMode)}`
                   : "SET KEY"
                 }
               </span>
@@ -892,7 +893,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             <div className="label" style={{ fontSize: "12px", marginTop: "4px" }}>PITCH</div>
             <span className="text-[12px]" style={{ color: "var(--text-dark)" }}>
               {baseKey !== null
-                ? semitoneToKey(baseKey, displaySemitones)
+                ? semitoneToKey(baseKey, displaySemitones, baseMode)
                 : `${displaySemitones >= 0 ? "+" : ""}${displaySemitones.toFixed(1)}ST`
               }
             </span>
