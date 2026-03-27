@@ -1497,6 +1497,7 @@ export default function Home() {
   const crossfader = useRemixStore((s) => s.crossfader);
   const setCrossfader = useRemixStore((s) => s.setCrossfader);
   const syncPlay = useRemixStore((s) => s.syncPlay);
+  const stopDeck = useRemixStore((s) => s.stop);
   const setParam = useRemixStore((s) => s.setParam);
   const deckA = useRemixStore((s) => s.deckA);
   const deckB = useRemixStore((s) => s.deckB);
@@ -1762,6 +1763,17 @@ export default function Home() {
                 <span className="label" style={{ margin: 0, fontSize: "12px", marginBottom: "4px" }}>SYNC START</span>
                 <button
                   onClick={async () => { const ctx = getAudioContext(); await ctx.resume(); syncPlay(); }}
+                  disabled={!deckA.sourceBuffer && !deckB.sourceBuffer}
+                  className="rocker-switch"
+                  style={{ width: "60px", height: "44px" }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full border-2 border-[#555]" />
+                </button>
+              </div>
+              <div className="flex flex-col items-center" data-tooltip="STOPS BOTH DECKS SIMULTANEOUSLY.">
+                <span className="label" style={{ margin: 0, fontSize: "12px", marginBottom: "4px" }}>SYNC STOP</span>
+                <button
+                  onClick={() => { stopDeck("A"); stopDeck("B"); }}
                   disabled={!deckA.sourceBuffer && !deckB.sourceBuffer}
                   className="rocker-switch"
                   style={{ width: "60px", height: "44px" }}
