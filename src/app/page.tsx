@@ -1099,14 +1099,14 @@ function MasterBus() {
       const bufLen = analyser.frequencyBinCount;
       const data = new Uint8Array(bufLen);
       analyser.getByteFrequencyData(data);
-      const useBins = Math.floor(bufLen * 0.8);
+      const useBins = Math.floor(bufLen * 0.15);
       const barW = W / useBins;
       for (let i = 0; i < useBins; i++) {
         const v = data[i] / 255;
         const barH = v * H;
         const alpha = 0.5 + v * 0.5;
         ctx2d.fillStyle = `rgba(117,204,70,${alpha})`;
-        ctx2d.fillRect(i * barW, H - barH, Math.max(barW - 1, 1), barH);
+        ctx2d.fillRect(i * barW, H - barH, barW, barH);
       }
     };
     draw();
