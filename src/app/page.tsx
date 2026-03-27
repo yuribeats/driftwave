@@ -573,7 +573,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           const studioUrl = "https://studio-2026-03-19.vercel.app/mpc.html";
           const studioWin = window.open(studioUrl, "driftwave-studio");
           if (!studioWin) return;
-          const msg = { type: "deck-export-mpc", loops, bank: id === "B" ? "B" : "A" };
+          const msg = { type: "deck-export-mpc", loops, bank: id === "B" ? "B" : "A", bpm: deck.calculatedBPM ?? undefined };
           let attempts = 0;
           const trySend = setInterval(() => {
             attempts++;
