@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Maps everysong key names to 0-11 note index (C=0 ... B=11)
 const KEY_MAP: Record<string, number> = {
   "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3,
   "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8,
@@ -9,7 +8,6 @@ const KEY_MAP: Record<string, number> = {
 
 function parseKey(keyStr: string): { noteIndex: number; mode: "major" | "minor" } | null {
   if (!keyStr) return null;
-  // e.g. "Db Minor", "C Major", "F# Minor"
   const parts = keyStr.trim().split(/\s+/);
   if (parts.length < 2) return null;
   const note = parts[0];
@@ -17,6 +15,26 @@ function parseKey(keyStr: string): { noteIndex: number; mode: "major" | "minor" 
   const noteIndex = KEY_MAP[note];
   if (noteIndex === undefined) return null;
   return { noteIndex, mode };
+}
+
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function wordOverlap(a: string, b: string): number {
+  const wordsA = new Set(normalize(a).split(" ").filter(Boolean));
+  const wordsB = normalize(b).split(" ").filter(Boolean);
+  return wordsB.filter((w) => wordsA.has(w)).length / Math.max(wordsA.size, wordsB.length, 1);
+}
+
+function matchScore(
+  track: { artist: string; title: string },
+  artist: string,
+  title: string
+): number {
+  const artistScore = artist ? wordOverlap(artist, track.artist) : 0.5;
+  const titleScore = title ? wordOverlap(title, track.title) : 0.5;
+  return artistScore * 0.5 + titleScore * 0.5;
 }
 
 export async function GET(request: NextRequest) {
@@ -28,7 +46,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing q, artist, or title" }, { status: 400 });
   }
 
-  const params = new URLSearchParams({ q, limit: "5" });
+  const params = new URLSearchParams({ q, limit: "20", sort: "popularity", dir: "desc" });
   if (artist) params.set("artist", artist);
   if (title) params.set("title", title);
 
@@ -42,12 +60,18 @@ export async function GET(request: NextRequest) {
     if (!res.ok) throw new Error(`Everysong error: ${res.status}`);
     const data = await res.json();
 
-    const tracks = data.tracks ?? [];
+    const tracks = (data.tracks ?? []) as Array<{ artist: string; title: string; bpm: number | null; key: string | null }>;
     if (tracks.length === 0) {
       return NextResponse.json({ found: false });
     }
 
-    const best = tracks[0];
+    // Pick best match by artist+title word overlap; fall back to first (most popular)
+    const best = tracks.reduce((best, t) => {
+      const score = matchScore(t, artist, title);
+      const bestScore = matchScore(best, artist, title);
+      return score > bestScore ? t : best;
+    }, tracks[0]);
+
     const keyParsed = parseKey(best.key ?? "");
 
     return NextResponse.json({
