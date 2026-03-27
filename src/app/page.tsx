@@ -13,7 +13,7 @@ import ExportVideoModalRemix from "../../components/ExportVideoModalRemix";
 
 type DeckId = "A" | "B";
 
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
+const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"] as const;
 
 function semitoneToKey(baseKeyIndex: number, semitones: number): string {
   const idx = ((baseKeyIndex + Math.round(semitones)) % 12 + 12) % 12;
