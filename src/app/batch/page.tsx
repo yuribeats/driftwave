@@ -94,14 +94,16 @@ function TrackSearch({
   const [results, setResults] = useState<EverysongResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchErr, setSearchErr] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
     setSearching(true);
     setSearchErr("");
     setResults([]);
+    setShowAll(false);
     try {
-      const res = await fetch(`/api/everysong/search?q=${encodeURIComponent(query)}&limit=5`);
+      const res = await fetch(`/api/everysong/search?q=${encodeURIComponent(query)}&limit=20`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResults(data.results ?? []);
@@ -111,6 +113,8 @@ function TrackSearch({
     }
     setSearching(false);
   }, [query]);
+
+  const visibleResults = showAll ? results : results.slice(0, 5);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -135,7 +139,7 @@ function TrackSearch({
 
       {results.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-          {results.map((r, i) => (
+          {visibleResults.map((r, i) => (
             <div
               key={i}
               onClick={() => onPick(r)}
@@ -172,6 +176,14 @@ function TrackSearch({
               </span>
             </div>
           ))}
+          {results.length > 5 && (
+            <button
+              style={{ ...btnStyle(false), alignSelf: "flex-start", marginTop: "2px" }}
+              onClick={() => setShowAll((v) => !v)}
+            >
+              {showAll ? "SHOW LESS" : `SHOW ALL (${results.length})`}
+            </button>
+          )}
         </div>
       )}
 

@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const apiKey = process.env.EVERYSONG_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "EVERYSONG_API_KEY not configured" }, { status: 500 });
 
-  const url = `https://everysong.site/api/search?q=${encodeURIComponent(q)}&limit=${limit}&api_key=${apiKey}`;
+  const url = `https://everysong.site/api/search?q=${encodeURIComponent(q)}&limit=${limit}&sort=popularity&dir=desc&api_key=${apiKey}`;
 
   try {
     const res = await fetch(url, { next: { revalidate: 3600 } });
