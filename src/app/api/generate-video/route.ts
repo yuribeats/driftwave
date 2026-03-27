@@ -26,6 +26,16 @@ function runFfmpeg(args: string[]): Promise<{ stdout: string; stderr: string }> 
   });
 }
 
+function getAudioDuration(audioPath: string): Promise<number> {
+  return new Promise((resolve) => {
+    execFile(ffmpegPath, ["-i", audioPath, "-f", "null", "-"], { maxBuffer: 1024 * 1024 }, (_error, _stdout, stderr) => {
+      const m = stderr.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+      if (m) resolve(+m[1] * 3600 + +m[2] * 60 + parseFloat(m[3]));
+      else resolve(0);
+    });
+  });
+}
+
 export async function POST(request: NextRequest) {
   let formData: FormData;
   try {
@@ -93,6 +103,11 @@ export async function POST(request: NextRequest) {
       finalAudioPath = mixedPath;
     }
 
+    // Apply 5-second fade-out to audio
+    const audioDur = await getAudioDuration(finalAudioPath);
+    const fadeDur = 5;
+    const fadeStart = Math.max(0, audioDur - fadeDur);
+
     // Generate video
     console.log("Running ffmpeg...");
     await runFfmpeg([
@@ -108,6 +123,7 @@ export async function POST(request: NextRequest) {
       "-b:a", "192k",
       "-pix_fmt", "yuv420p",
       "-vf", "scale=720:720:force_original_aspect_ratio=decrease,pad=720:720:(ow-iw)/2:(oh-ih)/2:black",
+      "-af", `afade=t=out:st=${fadeStart.toFixed(3)}:d=${fadeDur}`,
       "-r", "2",
       "-shortest",
       "-movflags", "+faststart",

@@ -6,6 +6,8 @@ import { generateCover } from "../lib/cover-generator";
 interface Props {
   audioBlob: Blob;
   defaultFilename: string;
+  initialArtist?: string;
+  initialTitle?: string;
   onClose: () => void;
 }
 
@@ -35,9 +37,9 @@ async function uploadToPinata(blob: Blob, filename: string): Promise<string> {
   return data.data?.cid || data.cid;
 }
 
-export default function ExportVideoModalRemix({ audioBlob, defaultFilename, onClose }: Props) {
-  const [artist, setArtist] = useState("");
-  const [title, setTitle] = useState("");
+export default function ExportVideoModalRemix({ audioBlob, defaultFilename, initialArtist = "", initialTitle = "", onClose }: Props) {
+  const [artist, setArtist] = useState(initialArtist);
+  const [title, setTitle] = useState(initialTitle);
   const [step, setStep] = useState(-1);
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
