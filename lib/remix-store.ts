@@ -1021,10 +1021,12 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
   lookupEverysong: async (id, artist, title) => {
     if (!artist && !title) return;
-    const q = encodeURIComponent(`${artist} ${title}`);
-    console.log(`[lookupEverysong:${id}] querying Everysong for "${artist} ${title}"`);
+    console.log(`[lookupEverysong:${id}] querying Everysong for artist="${artist}" title="${title}"`);
     try {
-      const res = await fetch(`/api/everysong?q=${q}`);
+      const params = new URLSearchParams();
+      if (artist) params.set("artist", artist);
+      if (title) params.set("title", title);
+      const res = await fetch(`/api/everysong?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       console.log(`[lookupEverysong:${id}] response:`, data);

@@ -20,17 +20,22 @@ function parseKey(keyStr: string): { noteIndex: number; mode: "major" | "minor" 
 }
 
 export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get("q");
+  const artist = request.nextUrl.searchParams.get("artist") ?? "";
+  const title = request.nextUrl.searchParams.get("title") ?? "";
+  const q = request.nextUrl.searchParams.get("q") ?? [artist, title].filter(Boolean).join(" ");
+
   if (!q) {
-    return NextResponse.json({ error: "Missing q" }, { status: 400 });
+    return NextResponse.json({ error: "Missing q, artist, or title" }, { status: 400 });
   }
+
+  const params = new URLSearchParams({ q, limit: "5" });
+  if (artist) params.set("artist", artist);
+  if (title) params.set("title", title);
 
   const apiKey = process.env.EVERYSONG_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "EVERYSONG_API_KEY not configured" }, { status: 500 });
-  }
+  if (apiKey) params.set("api_key", apiKey);
 
-  const url = `https://everysong.site/api/search?q=${encodeURIComponent(q)}&limit=5&api_key=${apiKey}`;
+  const url = `https://everysong.site/api/search?${params.toString()}`;
 
   try {
     const res = await fetch(url, { next: { revalidate: 3600 } });
