@@ -570,7 +570,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           if (loops.length === 0) return;
 
           // Open full studio and send data to MPC
-          const studioUrl = "https://studio-2026-03-19.vercel.app";
+          const studioUrl = "https://studio-2026-03-19.vercel.app/mpc.html";
           const studioWin = window.open(studioUrl, "driftwave-studio");
           if (!studioWin) return;
           const msg = { type: "deck-export-mpc", loops, bank: id === "B" ? "B" : "A" };
