@@ -24,7 +24,9 @@ function normalize(s: string): string {
 function wordOverlap(a: string, b: string): number {
   const wordsA = new Set(normalize(a).split(" ").filter(Boolean));
   const wordsB = normalize(b).split(" ").filter(Boolean);
-  return wordsB.filter((w) => wordsA.has(w)).length / Math.max(wordsA.size, wordsB.length, 1);
+  // Normalize by query size: if all query words appear in the track, score = 1.0
+  // This ensures "Bebe Rexha" matches "Bebe Rexha, Florida Georgia Line" fully
+  return wordsB.filter((w) => wordsA.has(w)).length / Math.max(wordsA.size, 1);
 }
 
 function matchScore(
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
   const url = `https://everysong.site/api/search?${params.toString()}`;
 
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    const res = await fetch(url, { next: { revalidate: 0 } });
     if (!res.ok) throw new Error(`Everysong error: ${res.status}`);
     const data = await res.json();
 
