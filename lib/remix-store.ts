@@ -1000,9 +1000,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         const { url, error } = await res.json();
         if (error || !url) throw new Error(error || "No results for instrumental");
         await get().loadFromYouTube("A", url);
-        // Everysong first so BPM+key priors are in store before detectDownbeat reads them
         await everysong("A");
-        await get().detectDownbeat("A");
       })(),
 
       // Deck B: full track → detect downbeat on full mix → stem isolation → vocals
@@ -1011,11 +1009,8 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         const { url, error } = await res.json();
         if (error || !url) throw new Error(error || "No results");
         await get().loadFromYouTube("B", url);
-        // Everysong first so BPM+key priors are in store before detectDownbeat reads them
         await everysong("B");
-        // Detect downbeat on full mix BEFORE isolation (full mix has drums → most accurate)
-        await get().detectDownbeat("B");
-        // Isolate vocals; downbeat timestamp carries over (timing unchanged by Demucs)
+        // Isolate vocals
         await get().separateStems("B");
         get().setStem("B", "vocals");
       })(),
@@ -1080,9 +1075,6 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
 
     console.log(`[loadDeck:${id}] running Everysong lookup`);
     await get().lookupEverysong(id, artist, title);
-
-    console.log(`[loadDeck:${id}] running downbeat detection`);
-    await get().detectDownbeat(id);
 
     if (id === "B") {
       console.log(`[loadDeck:B] starting stem isolation`);
