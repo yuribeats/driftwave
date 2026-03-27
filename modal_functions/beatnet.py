@@ -99,8 +99,6 @@ def detect_downbeat(item: dict) -> dict:
             y=y, sr=sr, bpm=detected_bpm, tightness=100, trim=False
         )
         beat_times = librosa.frames_to_time(beat_frames, sr=sr).tolist()
-        # Drop beats that fall in leading silence
-        beat_times = [t for t in beat_times if t >= audio_start_time]
 
         if len(beat_times) == 0:
             return {"error": "No beats detected"}
@@ -123,13 +121,23 @@ def detect_downbeat(item: dict) -> dict:
             )
             result = dbn(rnn)
             # result: [[time, beat_number], ...]  beat_number==1 → downbeat
-            # Filter out downbeats in leading silence
-            downbeat_times = [float(b[0]) for b in result if int(b[1]) == 1 and float(b[0]) >= audio_start_time]
+            downbeat_times = [float(b[0]) for b in result if int(b[1]) == 1]
         except Exception:
             # Fallback: assume 4/4, first beat is downbeat, every 4th beat after
             downbeat_times = [beat_times[i] for i in range(0, len(beat_times), 4)]
 
-        first_downbeat_ms = round(downbeat_times[0] * 1000) if downbeat_times else round(beat_times[0] * 1000)
+        raw_first_downbeat = downbeat_times[0] if downbeat_times else beat_times[0]
+
+        # If beat 1 falls in leading silence, advance by one bar at a time until
+        # we reach audible audio. This gives the first *heard* downbeat, not a
+        # phantom beat-grid projection before the music starts.
+        bar_dur = (4 * 60.0 / detected_bpm) if detected_bpm > 0 else 0
+        first_downbeat_s = raw_first_downbeat
+        if bar_dur > 0:
+            while first_downbeat_s < audio_start_time - 0.05:
+                first_downbeat_s += bar_dur
+
+        first_downbeat_ms = round(first_downbeat_s * 1000)
 
         # ── Key: use Everysong if provided ──────────────────────────────────
         if confirmed_ni is not None and confirmed_mode:
