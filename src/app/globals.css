@@ -115,7 +115,8 @@ body::after {
 [data-tooltip-right]::after {
   content: attr(data-tooltip-right);
   position: absolute;
-  left: calc(100% + 8px);
+  right: calc(100% + 8px);
+  left: auto;
   top: 50%;
   transform: translateY(-50%);
   background: #111;

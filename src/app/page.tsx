@@ -83,6 +83,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
   const expanded = expandParams(deck.params);
   const [ytUrl, setYtUrl] = useState("");
   const [loopEnabled, setLoopEnabled] = useState(false);
+  const [autoStem, setAutoStem] = useState(true);
   const baseKey = deck.baseKey;
   const baseMode = deck.baseMode;
   const [editingKey, setEditingKey] = useState(false);
@@ -111,13 +112,13 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
     setDeckLoading(true);
     setDeckLoadError("");
     try {
-      await loadDeck(id, deckArtist, deckTitle);
+      await loadDeck(id, deckArtist, deckTitle, { autoStem });
     } catch (e) {
       setDeckLoadError(e instanceof Error ? e.message : "LOAD FAILED");
       setTimeout(() => setDeckLoadError(""), 4000);
     }
     setDeckLoading(false);
-  }, [loadDeck, id, deckArtist, deckTitle]);
+  }, [loadDeck, id, deckArtist, deckTitle, autoStem]);
 
   // Clear key and BPM when source changes
   const sourceId = deck.sourceBuffer ? deck.sourceFilename : null;
@@ -185,12 +186,14 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
       const file = e.target.files?.[0];
       if (file) {
         await loadFile(id, file);
-        const stemTarget = id === "A" ? "instrumental" : "vocals";
-        setStem(id, stemTarget);
+        if (autoStem) {
+          const stemTarget = id === "A" ? "instrumental" : "vocals";
+          setStem(id, stemTarget);
+        }
       }
       if (inputRef.current) inputRef.current.value = "";
     },
-    [loadFile, setStem, id]
+    [loadFile, setStem, id, autoStem]
   );
 
   const handleStart = useCallback(async () => {
@@ -224,12 +227,17 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           >
             {id === "A" ? "INSTRUMENTAL" : "ACAPELLA"}
           </span>
-          <span
-            className="text-[8px] tracking-[1px] uppercase"
-            style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)", opacity: 0.55 }}
-          >
-            {id === "A" ? "AUTOMATICALLY REMOVES VOCALS" : "AUTOMATICALLY ISOLATES VOCALS"}
-          </span>
+          <div className="flex items-center gap-1" style={{ opacity: 0.55 }}>
+            <div className="led-cutout" onClick={() => setAutoStem(v => !v)} style={{ cursor: "default" }}>
+              <div className={`led-rect ${autoStem ? "led-green-on" : "led-green"}`} style={{ width: 10, height: 8 }} />
+            </div>
+            <span
+              className="text-[8px] tracking-[1px] uppercase"
+              style={{ color: "var(--text-dark)", fontFamily: "var(--font-tech)" }}
+            >
+              {id === "A" ? "AUTOMATICALLY REMOVES VOCALS" : "AUTOMATICALLY ISOLATES VOCALS"}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-center gap-0.5">
@@ -438,7 +446,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                       style={{ fontFamily: "var(--font-tech)", color: showYouTube ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent" }}
                     >
                       YOUTUBE URL
-                      <span data-tooltip-right="LOAD A TRACK FROM YOUTUBE" className="ml-3 opacity-40 text-[10px]">?</span>
+                      <span data-tooltip-right="LOAD A TRACK FROM YOUTUBE" className="ml-3 text-[10px]">?</span>
                     </button>
                     <button
                       onClick={() => { setStem(id, "vocals"); setDeckMenuOpen(false); }}
@@ -447,7 +455,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                       style={{ fontFamily: "var(--font-tech)", color: deck.activeStem === "vocals" ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent", opacity: deck.isStemLoading ? 0.5 : 1 }}
                     >
                       {deck.isStemLoading ? "SEPARATING..." : "ISOLATE VOCALS"}
-                      <span data-tooltip-right="STRIP INSTRUMENTS, KEEP VOCALS (ML-POWERED, ~30S)" className="ml-3 opacity-40 text-[10px]">?</span>
+                      <span data-tooltip-right="STRIP INSTRUMENTS, KEEP VOCALS (ML-POWERED, ~30S)" className="ml-3 text-[10px]">?</span>
                     </button>
                     <button
                       onClick={() => { setStem(id, "instrumental"); setDeckMenuOpen(false); }}
@@ -456,7 +464,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                       style={{ fontFamily: "var(--font-tech)", color: deck.activeStem === "instrumental" ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent", opacity: deck.isStemLoading ? 0.5 : 1 }}
                     >
                       {deck.isStemLoading ? "SEPARATING..." : "REMOVE VOCALS"}
-                      <span data-tooltip-right="STRIP VOCALS, KEEP INSTRUMENTS (ML-POWERED, ~30S)" className="ml-3 opacity-40 text-[10px]">?</span>
+                      <span data-tooltip-right="STRIP VOCALS, KEEP INSTRUMENTS (ML-POWERED, ~30S)" className="ml-3 text-[10px]">?</span>
                     </button>
                     <button
                       onClick={() => { detectDownbeat(id); setDeckMenuOpen(false); }}
@@ -469,7 +477,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                         : deck.firstDownbeatMs !== null
                         ? `DOWNBEAT: ${(deck.firstDownbeatMs / 1000).toFixed(3)}S`
                         : "DETECT DOWNBEAT"}</span>
-                      <span data-tooltip-right="FIND THE FIRST BEAT FOR LOOP ALIGNMENT" className="ml-3 opacity-40 text-[10px]">?</span>
+                      <span data-tooltip-right="FIND THE FIRST BEAT FOR LOOP ALIGNMENT" className="ml-3 text-[10px]">?</span>
                     </button>
                     <button
                       onClick={() => { setShowKeyFinder(!showKeyFinder); setDeckMenuOpen(false); }}
@@ -477,7 +485,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                       style={{ fontFamily: "var(--font-tech)", color: showKeyFinder ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent" }}
                     >
                       KEY FINDER
-                      <span data-tooltip-right="DETECT THE MUSICAL KEY OF THE TRACK" className="ml-3 opacity-40 text-[10px]">?</span>
+                      <span data-tooltip-right="DETECT THE MUSICAL KEY OF THE TRACK" className="ml-3 text-[10px]">?</span>
                     </button>
                     <button
                       onClick={() => { toggleGridlock(id); setDeckMenuOpen(false); }}
@@ -485,7 +493,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
                       style={{ fontFamily: "var(--font-tech)", color: deck.gridlockEnabled ? "#c82828" : "var(--text-dark)", background: "transparent" }}
                     >
                       GRIDLOCK
-                      <span data-tooltip-right="LOCK LOOP LENGTH TO THE BPM GRID" className="ml-3 opacity-40 text-[10px]">?</span>
+                      <span data-tooltip-right="LOCK LOOP LENGTH TO THE BPM GRID" className="ml-3 text-[10px]">?</span>
                     </button>
                   </div>
                 )}
@@ -807,9 +815,13 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
             onChange={(e) => setYtUrl(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && ytUrl.trim()) {
-                const ctx = getAudioContext();
-                ctx.resume().then(() => loadFromYouTube(id, ytUrl.trim()));
+                const url = ytUrl.trim();
                 setYtUrl("");
+                const ctx = getAudioContext();
+                ctx.resume().then(async () => {
+                  await loadFromYouTube(id, url);
+                  if (autoStem) setStem(id, id === "A" ? "instrumental" : "vocals");
+                });
               }
             }}
             placeholder="PASTE YOUTUBE URL"
@@ -820,9 +832,13 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
           <button
             onClick={() => {
               if (!ytUrl.trim()) return;
-              const ctx = getAudioContext();
-              ctx.resume().then(() => loadFromYouTube(id, ytUrl.trim()));
+              const url = ytUrl.trim();
               setYtUrl("");
+              const ctx = getAudioContext();
+              ctx.resume().then(async () => {
+                await loadFromYouTube(id, url);
+                if (autoStem) setStem(id, id === "A" ? "instrumental" : "vocals");
+              });
             }}
             disabled={deck.isLoading || !ytUrl.trim()}
             className="border-2 border-[#555] px-3 py-2 text-[12px] uppercase tracking-wider disabled:opacity-30"
@@ -1661,7 +1677,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: saveStatus ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent" }}
                   >
                     {saveStatus || "SAVE SESSION"}
-                    <span data-tooltip-right="SAVE CURRENT SESSION TO THIS BROWSER" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="SAVE CURRENT SESSION TO THIS BROWSER" className="ml-3 text-[10px]">?</span>
                   </button>
                   <button
                     onClick={() => { setLoadModalOpen(true); setMenuOpen(false); }}
@@ -1669,7 +1685,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent" }}
                   >
                     LOAD SESSION
-                    <span data-tooltip-right="RESTORE A PREVIOUSLY SAVED SESSION" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="RESTORE A PREVIOUSLY SAVED SESSION" className="ml-3 text-[10px]">?</span>
                   </button>
                   <button
                     onClick={() => { setManualOpen(true); setMenuOpen(false); }}
@@ -1677,7 +1693,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent" }}
                   >
                     MANUAL
-                    <span data-tooltip-right="VIEW THE FULL USER MANUAL" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="VIEW THE FULL USER MANUAL" className="ml-3 text-[10px]">?</span>
                   </button>
                   <button
                     onClick={() => { exportMP4(); setMenuOpen(false); }}
@@ -1686,7 +1702,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: "var(--accent-gold)", background: "transparent", opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.3 : 1 }}
                   >
                     {isExporting ? "RENDERING..." : "EXPORT MP4"}
-                    <span data-tooltip-right="RENDER YOUR MIX AS A VIDEO FILE" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="RENDER YOUR MIX AS A VIDEO FILE" className="ml-3 text-[10px]">?</span>
                   </button>
                   <button
                     onClick={handleShare}
@@ -1695,7 +1711,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: shareStatus ? "var(--accent-gold)" : "var(--text-dark)", background: "transparent", opacity: (!deckA.sourceBuffer && !deckB.sourceBuffer) ? 0.3 : 1 }}
                   >
                     {shareLoading ? "UPLOADING..." : shareStatus || "SHARE SESSION"}
-                    <span data-tooltip-right="UPLOAD AND SHARE A LINK TO THIS SESSION" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="UPLOAD AND SHARE A LINK TO THIS SESSION" className="ml-3 text-[10px]">?</span>
                   </button>
                   <a
                     href="https://www.youtube.com/@SLOWANDREVERBEDMACHINE"
@@ -1706,7 +1722,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: "var(--accent-gold)", background: "transparent" }}
                   >
                     YOUTUBE
-                    <span data-tooltip-right="VISIT THE SLOWED+REVERBED YOUTUBE CHANNEL" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="VISIT THE SLOWED+REVERBED YOUTUBE CHANNEL" className="ml-3 text-[10px]">?</span>
                   </a>
                   <a
                     href="https://studio-2026-03-19.vercel.app"
@@ -1717,7 +1733,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent" }}
                   >
                     STUDIO
-                    <span data-tooltip-right="OPEN THE DRIFTWAVE STUDIO APP" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="OPEN THE DRIFTWAVE STUDIO APP" className="ml-3 text-[10px]">?</span>
                   </a>
                   <a
                     href="https://everysong.site"
@@ -1728,7 +1744,7 @@ export default function Home() {
                     style={{ fontFamily: "var(--font-tech)", color: "var(--text-dark)", background: "transparent" }}
                   >
                     EVERY SONG
-                    <span data-tooltip-right="BROWSE EVERY SONG ON EVERYSONG.SITE" className="ml-3 opacity-40 text-[10px]">?</span>
+                    <span data-tooltip-right="BROWSE EVERY SONG ON EVERYSONG.SITE" className="ml-3 text-[10px]">?</span>
                   </a>
                 </div>
               )}

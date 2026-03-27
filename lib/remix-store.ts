@@ -275,7 +275,7 @@ interface RemixStore {
   restoreSessionFromData: (session: Record<string, unknown>) => Promise<void>;
   autoLoad: (artist: string, title: string) => Promise<void>;
   lookupEverysong: (deck: DeckId, artist: string, title: string) => Promise<void>;
-  loadDeck: (deck: DeckId, artist: string, title: string) => Promise<void>;
+  loadDeck: (deck: DeckId, artist: string, title: string, opts?: { autoStem?: boolean }) => Promise<void>;
   detectDownbeat: (deck: DeckId) => Promise<void>;
   play: (deck: DeckId, forceLoop?: boolean) => Promise<void>;
   stop: (deck: DeckId) => void;
@@ -1053,7 +1053,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     get().setDeckMeta(id, { artist, title });
   },
 
-  loadDeck: async (id, artist, title) => {
+  loadDeck: async (id, artist, title, opts) => {
     const searchQuery = `${artist} ${title}`;
     console.log(`[loadDeck:${id}] starting — searching YouTube for "${searchQuery}"`);
 
@@ -1083,15 +1083,19 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     console.log(`[loadDeck:${id}] running Everysong lookup`);
     await get().lookupEverysong(id, artist, title);
 
-    const stemTarget: StemType = id === "A" ? "instrumental" : "vocals";
-    console.log(`[loadDeck:${id}] starting stem isolation → ${stemTarget}`);
-    try {
-      await get().separateStems(id);
-      get().setStem(id, stemTarget);
-      console.log(`[loadDeck:${id}] ${stemTarget} stem active`);
-    } catch (e) {
-      console.error(`[loadDeck:${id}] stem separation failed:`, e);
-      throw e;
+    if (opts?.autoStem !== false) {
+      const stemTarget: StemType = id === "A" ? "instrumental" : "vocals";
+      console.log(`[loadDeck:${id}] starting stem isolation → ${stemTarget}`);
+      try {
+        await get().separateStems(id);
+        get().setStem(id, stemTarget);
+        console.log(`[loadDeck:${id}] ${stemTarget} stem active`);
+      } catch (e) {
+        console.error(`[loadDeck:${id}] stem separation failed:`, e);
+        throw e;
+      }
+    } else {
+      console.log(`[loadDeck:${id}] autoStem disabled — skipping stem separation`);
     }
 
     console.log(`[loadDeck:${id}] complete`);
