@@ -119,6 +119,7 @@ interface DeckState {
   sourceFilename: string | null;
   sourceFile: File | null;
   sourceUrl: string | null;
+  sourceAudioBytes: ArrayBuffer | null;
   artist: string;
   title: string;
   baseKey: number | null;
@@ -155,6 +156,7 @@ const defaultDeck = (): DeckState => ({
   sourceFilename: null,
   sourceFile: null,
   sourceUrl: null,
+  sourceAudioBytes: null,
   artist: "",
   title: "",
   baseKey: null,
@@ -839,7 +841,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
   loadFile: async (id, file) => {
     const dk = deckKey(id);
     get().stop(id);
-    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, calculatedBPM: null, activeStem: null, stemBuffers: null, stemError: null, sourceFile: file, sourceUrl: null } }));
+    set((s) => ({ [dk]: { ...s[dk], isLoading: true, pauseOffset: 0, calculatedBPM: null, activeStem: null, stemBuffers: null, stemError: null, sourceFile: file, sourceUrl: null, sourceAudioBytes: null } }));
     try {
       const audioBuffer = await decodeFile(file);
       set((s) => ({
@@ -872,6 +874,7 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
           sourceFilename: title,
           sourceFile: null,
           sourceUrl: url,
+          sourceAudioBytes: buffer,
           isLoading: false,
           regionStart: 0,
           regionEnd: 0,
@@ -1117,13 +1120,13 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       console.log(`[detectDownbeat:${id}] priors:`, { confirmedBpm, note_index: deck.baseKey, sourceUrl: deck.sourceUrl });
 
       let res: Response;
-      if (deck.sourceUrl) {
-        console.log(`[detectDownbeat:${id}] sending YouTube URL to /api/downbeat`);
-        res = await fetch("/api/downbeat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ youtubeUrl: deck.sourceUrl, ...priors }),
-        });
+      if (deck.sourceAudioBytes) {
+        console.log(`[detectDownbeat:${id}] uploading cached audio bytes (${deck.sourceAudioBytes.byteLength} bytes) to /api/downbeat`);
+        const fd = new FormData();
+        fd.append("audio", new Blob([deck.sourceAudioBytes], { type: "audio/mpeg" }), "audio.mp3");
+        if (confirmedBpm) fd.append("bpm", String(confirmedBpm));
+        if (deck.baseKey !== null) fd.append("note_index", String(deck.baseKey));
+        res = await fetch("/api/downbeat", { method: "POST", body: fd });
       } else if (deck.sourceFile) {
         console.log(`[detectDownbeat:${id}] uploading local file to /api/downbeat`);
         const fd = new FormData();
@@ -1131,19 +1134,17 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
         if (confirmedBpm) fd.append("bpm", String(confirmedBpm));
         if (deck.baseKey !== null) fd.append("note_index", String(deck.baseKey));
         res = await fetch("/api/downbeat", { method: "POST", body: fd });
-      } else {
-        const url = deck.sourceFilename;
-        if (!url) {
-          console.warn(`[detectDownbeat:${id}] no sourceUrl, sourceFile, or filename — cannot detect`);
-          set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: false } }));
-          return;
-        }
-        console.log(`[detectDownbeat:${id}] sending audio URL to /api/downbeat: ${url}`);
+      } else if (deck.sourceUrl && !deck.sourceUrl.includes("youtube")) {
+        console.log(`[detectDownbeat:${id}] sending audio URL to /api/downbeat: ${deck.sourceUrl}`);
         res = await fetch("/api/downbeat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioUrl: url, ...priors }),
+          body: JSON.stringify({ audioUrl: deck.sourceUrl, ...priors }),
         });
+      } else {
+        console.warn(`[detectDownbeat:${id}] no audio bytes, file, or URL — cannot detect`);
+        set((s) => ({ [dk]: { ...s[dk], downbeatDetecting: false } }));
+        return;
       }
 
       if (!res.ok) {

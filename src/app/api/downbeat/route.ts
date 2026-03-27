@@ -1,34 +1,7 @@
-import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "edge";
 export const maxDuration = 300;
-
-function extractVideoId(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : null;
-}
-
-async function downloadYouTubeMP3(youtubeUrl: string): Promise<ArrayBuffer> {
-  const videoId = extractVideoId(youtubeUrl);
-  if (!videoId) throw new Error("Invalid YouTube URL");
-
-  const apiRes = await fetch(`https://youtube-mp36.p.rapidapi.com/dl?id=${videoId}`, {
-    headers: {
-      "X-RapidAPI-Key": process.env.RAPIDAPI_KEY!,
-      "X-RapidAPI-Host": "youtube-mp36.p.rapidapi.com",
-    },
-  });
-  if (!apiRes.ok) throw new Error(`RapidAPI HTTP ${apiRes.status}`);
-  const data = await apiRes.json();
-  if (data.status !== "ok" || !data.link) throw new Error(data.msg || "No download link");
-
-  const xrun = createHash("md5").update(process.env.RAPIDAPI_USERNAME!).digest("hex");
-  const audioRes = await fetch(data.link, { headers: { "X-RUN": xrun } });
-  if (!audioRes.ok) throw new Error(`Audio download HTTP ${audioRes.status}`);
-  const buf = await audioRes.arrayBuffer();
-  if (buf.byteLength < 10_000) throw new Error("Download too small — not valid audio");
-  return buf;
-}
 
 async function uploadToReplicate(fileBytes: ArrayBuffer, filename: string): Promise<string> {
   const fd = new FormData();
@@ -62,16 +35,13 @@ export async function POST(req: NextRequest) {
       if (body.note_index !== undefined) priors.note_index = body.note_index;
       if (body.mode)       priors.mode       = body.mode;
 
-      if (body.youtubeUrl) {
-        const mp3 = await downloadYouTubeMP3(body.youtubeUrl);
-        audioUrl = await uploadToReplicate(mp3, "audio.mp3");
-      } else if (body.audioUrl) {
+      if (body.audioUrl) {
         audioUrl = body.audioUrl;
       } else {
-        return NextResponse.json({ error: "Missing youtubeUrl or audioUrl" }, { status: 400 });
+        return NextResponse.json({ error: "Missing audioUrl" }, { status: 400 });
       }
     } else {
-      // Local file upload — priors come as form fields
+      // File upload — priors come as form fields
       const formData = await req.formData();
       const file = formData.get("audio") as File | null;
       if (!file) return NextResponse.json({ error: "No audio file" }, { status: 400 });
@@ -79,7 +49,7 @@ export async function POST(req: NextRequest) {
       const niField  = formData.get("note_index");
       if (bpmField)  priors.bpm        = parseFloat(String(bpmField));
       if (niField)   priors.note_index = parseInt(String(niField), 10);
-      audioUrl = await uploadToReplicate(await file.arrayBuffer(), file.name || "audio.wav");
+      audioUrl = await uploadToReplicate(await file.arrayBuffer(), file.name || "audio.mp3");
     }
 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
