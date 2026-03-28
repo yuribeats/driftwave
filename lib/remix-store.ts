@@ -273,7 +273,6 @@ interface RemixStore {
   setDeckMeta: (deck: DeckId, meta: { artist?: string; title?: string; baseKey?: number | null; baseMode?: "major" | "minor" | null }) => void;
   restoreSession: (sessionId: string) => Promise<void>;
   restoreSessionFromData: (session: Record<string, unknown>) => Promise<void>;
-  autoLoad: (artist: string, title: string) => Promise<void>;
   lookupEverysong: (deck: DeckId, artist: string, title: string) => Promise<void>;
   loadDeck: (deck: DeckId, artist: string, title: string, opts?: { autoStem?: boolean }) => Promise<void>;
   detectDownbeat: (deck: DeckId) => Promise<void>;
@@ -291,7 +290,6 @@ interface RemixStore {
   seek: (deck: DeckId, position: number) => Promise<void>;
   scrub: (deck: DeckId, position: number) => void;
   syncPlay: () => Promise<void>;
-  calculateBPMFromLoop: (deck: DeckId) => void;
   addLoopToBank: (deck: DeckId) => void;
   removeFromBank: (deck: DeckId, index: number) => void;
   setSequencerOpen: (open: boolean) => void;
@@ -989,41 +987,6 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     }
   },
 
-  autoLoad: async (artist, title) => {
-    const everysong = async (id: DeckId) => {
-      const esRes = await fetch(`/api/everysong?q=${encodeURIComponent(`${artist} ${title}`)}`);
-      const esData = await esRes.json();
-      if (esData.found) {
-        if (esData.bpm) get().setBPM(id, esData.bpm);
-        if (esData.noteIndex !== null) get().setDeckMeta(id, { baseKey: esData.noteIndex, baseMode: esData.mode ?? null });
-      }
-      get().setDeckMeta(id, { artist, title });
-    };
-
-    await Promise.all([
-      // Deck A: instrumental
-      (async () => {
-        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} ${title} instrumental`)}`);
-        const { url, error } = await res.json();
-        if (error || !url) throw new Error(error || "No results for instrumental");
-        await get().loadFromYouTube("A", url);
-        await everysong("A");
-      })(),
-
-      // Deck B: full track → detect downbeat on full mix → stem isolation → vocals
-      (async () => {
-        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(`${artist} ${title}`)}`);
-        const { url, error } = await res.json();
-        if (error || !url) throw new Error(error || "No results");
-        await get().loadFromYouTube("B", url);
-        await everysong("B");
-        // Isolate vocals
-        await get().separateStems("B");
-        get().setStem("B", "vocals");
-      })(),
-    ]);
-  },
-
   lookupEverysong: async (id, artist, title) => {
     if (!artist && !title) return;
     console.log(`[lookupEverysong:${id}] querying Everysong for artist="${artist}" title="${title}"`);
@@ -1497,10 +1460,6 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
     const loop = get().isRecording;
     if (hasA) get().play("A", loop);
     if (hasB) get().play("B", loop);
-  },
-
-  calculateBPMFromLoop: () => {
-    // BPM comes from Everysong only — not derived from loop length
   },
 
   setBPM: (id, bpm) => {

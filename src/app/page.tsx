@@ -129,7 +129,7 @@ function Deck({ id, onHide }: { id: DeckId; onHide?: () => void }) {
     setEditingBPM(false);
   }, [sourceId, id, setDeckMeta]);
 
-  // Sync artist/title inputs from store (populated by autoLoad / lookupEverysong)
+  // Sync artist/title inputs from store (populated by lookupEverysong)
   useEffect(() => {
     if (deck.artist) setDeckArtist(deck.artist);
     if (deck.title) setDeckTitle(deck.title);
