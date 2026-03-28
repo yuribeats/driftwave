@@ -1083,8 +1083,9 @@ export const useRemixStore = create<RemixStore>((set, get) => ({
       const priors: Record<string, unknown> = {};
       if (deck.calculatedBPM) priors.bpm = deck.calculatedBPM;
       if (deck.baseKey !== null) priors.note_index = deck.baseKey;
+      if (deck.baseMode) priors.mode = deck.baseMode;
 
-      console.log(`[detectDownbeat:${id}] priors:`, { confirmedBpm: deck.calculatedBPM, note_index: deck.baseKey });
+      console.log(`[detectDownbeat:${id}] priors:`, { confirmedBpm: deck.calculatedBPM, note_index: deck.baseKey, mode: deck.baseMode });
 
       // ── Build request to /api/downbeat ──────────────────────────────────
       let requestBody: Record<string, unknown>;
